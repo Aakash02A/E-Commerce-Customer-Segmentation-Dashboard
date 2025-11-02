@@ -18,4 +18,12 @@ This project integrates with existing detection and response systems (like the N
 
 ---
 
-## 🗂️ Project Structure
+## 🧰 Technologies Used
+| Category | Tools |
+|-----------|-------|
+| **Languages** | Python |
+| **LLM / NLP** | OpenAI GPT API, LangChain, HuggingFace Transformers |
+| **Retrieval / Storage** | FAISS, ChromaDB |
+| **Visualization / UI** | Streamlit, FastAPI |
+| **Data Sources** | ELK Logs, NIDS Alerts, Threat Feeds |
+| **Deployment** | Docker, GitHub Actions |
