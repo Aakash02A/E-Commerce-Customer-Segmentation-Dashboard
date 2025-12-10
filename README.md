@@ -17,36 +17,6 @@ A complete, production-ready system for segmenting e-commerce customers using Ap
 
 ---
 
-## 📋 Project Structure
-
-```
-├── backend/                          # Flask API server
-│   ├── app.py                        # Main Flask application with 11 API endpoints
-│   ├── spark_job.py                  # PySpark ML pipeline for customer segmentation
-│   ├── requirements.txt               # Python dependencies
-│   ├── sample_data.csv               # 30 sample customer records for testing
-│   └── uploads/                      # Directory for user-uploaded files
-│       └── results/                  # Output directory for segmentation results
-│       └── status/                   # Job status tracking files
-│
-├── frontend/                         # Web dashboard
-│   ├── index.html                    # Main dashboard interface (426 lines)
-│   ├── serve.py                      # HTTP server for frontend
-│   ├── sample_customers.csv          # Sample data for reference
-│   └── assets/
-│       ├── css/
-│       │   └── style.css             # Dashboard styling
-│       └── js/
-│           └── app.js                # Frontend logic and API integration
-│
-├── README.md                         # This file
-├── LICENSE                           # MIT License
-└── startup info.md                   # Quick start guide
-
-```
-
----
-
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -310,10 +280,6 @@ Stages include:
 
 ---
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 7f0b0a5e2b7197c6b7584f76e0eeaa42419dd0b2
 ## 🎓 Learning Resources
 
 This project demonstrates:
@@ -324,7 +290,3 @@ This project demonstrates:
 - **Data Engineering** - CSV processing and validation
 - **Web Development** - Responsive HTML/CSS/JavaScript
 
-<<<<<<< HEAD
----
-=======
->>>>>>> 7f0b0a5e2b7197c6b7584f76e0eeaa42419dd0b2
