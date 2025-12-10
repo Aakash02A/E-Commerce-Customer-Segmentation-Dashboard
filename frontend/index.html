@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce Customer Segmentation Dashboard</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="logo">📊 E-Commerce Segmentation</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#" data-page="home" class="nav-link active">Home</a></li>
+                <li><a href="#" data-page="upload" class="nav-link">Upload Data</a></li>
+                <li><a href="#" data-page="monitor" class="nav-link">Job Monitor</a></li>
+                <li><a href="#" data-page="results" class="nav-link">Segmentation Results</a></li>
+                <li><a href="#" data-page="visualization" class="nav-link">Visualization</a></li>
+                <li><a href="#" data-page="about" class="nav-link">About</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+
+        <!-- HOME PAGE -->
+        <section id="home" class="page active">
+            <div class="hero-section">
+                <h1 class="page-title">E-Commerce Customer Segmentation</h1>
+                <p class="hero-description">
+                    Leverage Apache Spark and advanced analytics to segment your customers into meaningful groups
+                    based on their purchasing behavior, demographics, and engagement patterns. Unlock actionable insights
+                    for targeted marketing and improved customer retention.
+                </p>
+            </div>
+
+            <div class="home-grid">
+                <!-- Spark Status Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🔥 Spark Status</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="spark-status-text">Status: <span id="spark-status" class="badge-success">Connected</span></p>
+                        <p class="spark-info">Spark UI available at: <code>http://localhost:4040</code></p>
+                        <button class="btn btn-primary" onclick="openSparkUI()">Open Spark UI</button>
+                    </div>
+                </div>
+
+                <!-- Quick Action Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>⚡ Quick Start</h3>
+                    </div>
+                    <div class="card-body">
+                        <p>Get started with customer segmentation in three steps:</p>
+                        <ol class="quick-steps">
+                            <li>Upload your customer data (CSV)</li>
+                            <li>Run segmentation analysis</li>
+                            <li>View results and visualizations</li>
+                        </ol>
+                        <div class="button-group">
+                            <button class="btn btn-primary" onclick="navigateTo('upload')">Upload Data</button>
+                            <button class="btn btn-secondary" onclick="showMessage('Please upload data first')">Run Segmentation</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Features Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>✨ Features</h3>
+                    </div>
+                    <div class="card-body features-list">
+                        <div class="feature-item">
+                            <span class="feature-icon">📁</span>
+                            <span>Easy CSV Upload</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">⚙️</span>
+                            <span>Spark-Powered Analysis</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">📊</span>
+                            <span>Interactive Visualizations</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">📈</span>
+                            <span>Detailed Metrics & Insights</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- UPLOAD DATA PAGE -->
+        <section id="upload" class="page">
+            <h1 class="page-title">Upload Customer Data</h1>
+            
+            <div class="upload-container">
+                <div class="upload-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>📤 Upload CSV File</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="drop-zone" id="dropZone">
+                                <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <p class="drop-text">Drag and drop your CSV file here</p>
+                                <p class="drop-subtext">or click to select a file</p>
+                                <input type="file" id="fileInput" accept=".csv" hidden>
+                            </div>
+                            <div class="upload-info">
+                                <p><strong>Supported format:</strong> CSV (Comma-Separated Values)</p>
+                                <p><strong>Expected columns:</strong> CustomerID, Age, Spend, Recency, Frequency, Category, etc.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="preview-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>👁️ Data Preview (First 10 Rows)</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="previewContainer" class="preview-container">
+                                <p class="empty-state">No file selected yet. Upload a CSV to see a preview.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="button-group">
+                                <button class="btn btn-primary" id="segmentationBtn" onclick="startSegmentation()" disabled>
+                                    Start Segmentation
+                                </button>
+                                <button class="btn btn-secondary" onclick="clearUpload()">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- JOB MONITOR PAGE -->
+        <section id="monitor" class="page">
+            <h1 class="page-title">Job Monitor</h1>
+            
+            <div class="monitor-container">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>⚙️ Spark Job Progress</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress-section">
+                            <h4>Overall Progress</h4>
+                            <div class="progress-bar-container">
+                                <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+                            </div>
+                            <p id="progressText" class="progress-text">0% Complete</p>
+                        </div>
+
+                        <div class="stages-section">
+                            <h4>Processing Stages</h4>
+                            <div class="stages-list">
+                                <div class="stage-item">
+                                    <span class="stage-name">Stage 1: Data Loading</span>
+                                    <span class="stage-status status-pending">Pending</span>
+                                </div>
+                                <div class="stage-item">
+                                    <span class="stage-name">Stage 2: Data Preprocessing</span>
+                                    <span class="stage-status status-pending">Pending</span>
+                                </div>
+                                <div class="stage-item">
+                                    <span class="stage-name">Stage 3: Feature Engineering</span>
+                                    <span class="stage-status status-pending">Pending</span>
+                                </div>
+                                <div class="stage-item">
+                                    <span class="stage-name">Stage 4: Clustering (K-Means)</span>
+                                    <span class="stage-status status-pending">Pending</span>
+                                </div>
+                                <div class="stage-item">
+                                    <span class="stage-name">Stage 5: Results Generation</span>
+                                    <span class="stage-status status-pending">Pending</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📝 Job Logs</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="logConsole" class="log-console">
+                            <p class="log-entry">[INFO] System Ready. Waiting for data upload...</p>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn btn-secondary" onclick="clearLogs()">Clear Logs</button>
+                            <button class="btn btn-primary" onclick="openSparkUI()">Open Spark UI</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEGMENTATION RESULTS PAGE -->
+        <section id="results" class="page">
+            <h1 class="page-title">Segmentation Results</h1>
+            
+            <div class="results-container">
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-value" id="clusterCount">0</div>
+                        <div class="summary-label">Total Clusters</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value" id="totalCustomers">0</div>
+                        <div class="summary-label">Total Customers</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value" id="avgClusterSize">0</div>
+                        <div class="summary-label">Avg Cluster Size</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value" id="silhouetteScore">0.00</div>
+                        <div class="summary-label">Silhouette Score</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📊 Cluster Details</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="clustersContainer" class="clusters-grid">
+                            <p class="empty-state">No segmentation results yet. Run segmentation to see clusters.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💾 Export Results</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="button-group">
+                            <button class="btn btn-secondary" onclick="downloadResults('csv')" disabled>
+                                Download CSV
+                            </button>
+                            <button class="btn btn-secondary" onclick="downloadResults('json')" disabled>
+                                Download JSON
+                            </button>
+                            <button class="btn btn-secondary" onclick="downloadResults('pdf')" disabled>
+                                Download Report (PDF)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VISUALIZATION PAGE -->
+        <section id="visualization" class="page">
+            <h1 class="page-title">Data Visualizations</h1>
+            
+            <div class="visualization-container">
+                <div class="chart-wrapper">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>📊 Cluster Distribution</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="clusterChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>💰 Spend vs Recency</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="scatterChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>👥 Demographic Comparison</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="ageChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>🎯 Cluster Center Characteristics</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABOUT PAGE -->
+        <section id="about" class="page">
+            <h1 class="page-title">About This Dashboard</h1>
+            
+            <div class="about-container">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📋 Project Overview</h3>
+                    </div>
+                    <div class="card-body">
+                        <p>
+                            The E-Commerce Customer Segmentation Dashboard is a web-based analytics platform designed to help
+                            e-commerce businesses understand their customer base better. Using Apache Spark's distributed computing
+                            power and advanced machine learning algorithms, this tool segments customers into meaningful groups
+                            based on their purchasing behavior and characteristics.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>⚙️ Technology Stack</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="tech-stack">
+                            <div class="tech-item">
+                                <span class="tech-icon">🌐</span>
+                                <div>
+                                    <strong>Frontend</strong>
+                                    <p>HTML5, CSS3, JavaScript (Vanilla)</p>
+                                </div>
+                            </div>
+                            <div class="tech-item">
+                                <span class="tech-icon">⚡</span>
+                                <div>
+                                    <strong>Visualization</strong>
+                                    <p>Chart.js for interactive charts</p>
+                                </div>
+                            </div>
+                            <div class="tech-item">
+                                <span class="tech-icon">🔥</span>
+                                <div>
+                                    <strong>Backend</strong>
+                                    <p>Apache Spark (Scala/Python)</p>
+                                </div>
+                            </div>
+                            <div class="tech-item">
+                                <span class="tech-icon">📊</span>
+                                <div>
+                                    <strong>Algorithm</strong>
+                                    <p>K-Means Clustering</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🎯 Use Cases</h3>
+                    </div>
+                    <div class="card-body">
+                        <ul class="use-cases-list">
+                            <li><strong>Targeted Marketing:</strong> Create personalized campaigns for each customer segment</li>
+                            <li><strong>Customer Retention:</strong> Identify at-risk customers and develop retention strategies</li>
+                            <li><strong>Product Recommendations:</strong> Recommend products based on segment preferences</li>
+                            <li><strong>Pricing Strategy:</strong> Develop segment-specific pricing models</li>
+                            <li><strong>Customer Lifetime Value:</strong> Calculate and predict CLV for each segment</li>
+                            <li><strong>Resource Allocation:</strong> Optimize support resources based on segment size and needs</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📞 Support & Documentation</h3>
+                    </div>
+                    <div class="card-body">
+                        <p>
+                            For issues, feature requests, or documentation, please visit the project repository.
+                            The Spark UI provides detailed information about job execution and performance metrics.
+                        </p>
+                        <button class="btn btn-primary" onclick="openSparkUI()">View Spark UI</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2025 E-Commerce Customer Segmentation Dashboard. All rights reserved.</p>
+        <p>Powered by Apache Spark | Built with ❤️ for Data-Driven Decisions</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="assets/js/app.js"></script>
+</body>
+</html>

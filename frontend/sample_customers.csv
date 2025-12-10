@@ -1,0 +1,21 @@
+CustomerID,Age,Spend,Recency,Frequency,Category,Region
+CUST001,45,1550,25,12,Electronics,North
+CUST002,38,820,35,8,Fashion,South
+CUST003,28,600,45,5,Home & Garden,East
+CUST004,62,2100,15,15,Electronics,West
+CUST005,52,1480,30,11,Fashion,North
+CUST006,35,750,40,7,Home & Garden,South
+CUST007,48,1620,22,13,Electronics,East
+CUST008,32,680,50,4,Fashion,West
+CUST009,58,2050,20,14,Electronics,North
+CUST010,40,900,38,9,Home & Garden,South
+CUST011,25,580,55,3,Fashion,East
+CUST012,65,2200,10,16,Electronics,West
+CUST013,44,1500,28,12,Home & Garden,North
+CUST014,37,760,42,6,Fashion,South
+CUST015,30,620,48,5,Electronics,East
+CUST016,50,1680,24,13,Home & Garden,West
+CUST017,41,850,36,8,Electronics,North
+CUST018,26,590,52,4,Fashion,South
+CUST019,55,1950,18,14,Electronics,East
+CUST020,39,880,37,9,Home & Garden,West
