@@ -30,6 +30,8 @@ stage only ever consumes a *validated, eligible* dataset.
     - rule-based segments + optional numpy K-Means
   • dashboard_service (Phase 9)
     - read-only analytics assembly (scoped by analysis_id)
+  • export_service (Phase 10)
+    - CSV/XLSX export of persisted results (formula-injection safe)
   • data_quality_service
     - configurable rules
     - eligible row selection
@@ -98,6 +100,7 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │   │   │   ├── rfm_service.py         # Phase 7 deterministic quintile RFM scoring (pure)
 │   │   │   ├── segmentation_service.py# Phase 8 rule-based segments + optional K-Means
 │   │   │   ├── dashboard_service.py   # Phase 9 read-only dashboard assembly (scoped by analysis_id)
+│   │   │   ├── export_service.py      # Phase 10 CSV/XLSX export of persisted results (formula-injection safe)
 │   │   │   └── analysis_service.py    # integrity -> Spark/RFM/segment -> persist
 │   │   ├── routes/                    # Flask blueprints (thin HTTP layer)
 │   │   │   ├── pages.py               # HTML page routes
@@ -105,7 +108,8 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │   │   │   ├── mappings.py            # GET/POST /api/uploads/<id>/mapping
 │   │   │   ├── validation.py          # GET/POST /api/uploads/<id>/validate
 │   │   │   ├── analyses.py            # aggregate, rfm, segment, metrics endpoints
-│   │   │   └── dashboard.py           # Phase 9 GET /api/analyses, /<id>/dashboard, /<id>/customers
+│   │   │   ├── dashboard.py           # Phase 9 GET /api/analyses, /<id>/dashboard, /<id>/customers
+│   │   │   └── export.py              # Phase 10 GET /api/analyses/<id>/export (CSV/XLSX download)
 │   │   └── utils/                     # file_utils, response_utils, logging_utils
 │   ├── tests/                         # pytest suite (isolated DB + storage per test)
 │   │   ├── conftest.py                # fixtures, build_app(), prepare_ready_upload()
@@ -117,7 +121,8 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │   │   ├── test_analyses.py           # integration + SQLite compatibility
 │   │   ├── test_rfm_service.py        # Phase 7 RFM scoring, ties, persistence
 │   │   ├── test_segmentation_service.py # Phase 8 segments, K-Means, isolation
-│   │   └── test_dashboard.py          # Phase 9 metrics, segments, RFM dists, isolation, errors
+│   │   ├── test_dashboard.py          # Phase 9 metrics, segments, RFM dists, isolation, errors
+│   │   └── test_export.py             # Phase 10 CSV/XLSX contents, injection safety, isolation, errors
 │   ├── .env.example                   # Environment configuration template
 │   ├── pytest.ini                     # pythonpath=., testpaths=tests
 │   ├── requirements.txt               # Flask, pandas, PySpark, openpyxl, ...
@@ -182,6 +187,14 @@ E-Commerce-Customer-Segmentation-Dashboard/
   summaries, and stage flags. Every read is scoped by `analysis_id`; unavailable stages are
   surfaced as `available:false` (never faked as zero). Aggregation happens in SQL (`GROUP BY`,
   `LIMIT/OFFSET`) so full cohorts are never loaded into the browser.
+- **Export Assembly (`export_service.py`, Phase 10):** A **read-only** layer that turns one
+  *completed* analysis into a downloadable file, reusing `dashboard_service` (overview +
+  segment breakdown) and `analysis_repository.get_metrics` (customer rows) so exported values
+  are identical to those displayed and never sourced from a raw upload. Emits RFC-4180 CSV
+  (UTF-8 + BOM) and multi-sheet XLSX (already-pinned `openpyxl`, no new dependency). Text cells
+  leading with `= + - @ TAB CR` are neutralized against spreadsheet formula injection, numbers
+  stay numeric cells, filenames come only from a whitelisted dataset token + the hex
+  `analysis_id`, and an empty cohort yields a headers-only file rather than an error.
 - **Orchestration (`analysis_service.py`):** Enforces the integrity rules that only a
   `ready_for_analysis` dataset with a present eligible file may be aggregated, binds each
   analysis to exactly one upload, and gates the staged pipeline (aggregate → RFM → segment),
@@ -193,9 +206,10 @@ E-Commerce-Customer-Segmentation-Dashboard/
   Flask and Spark concerns.
 - **Testing (`backend/tests/`):** Pytest suite with per-test isolated DB/storage,
   covering file handling, mapping, quality rules, full-pipeline E2E, persistence/
-  transaction/FK/restart integrity, PySpark math/isolation/error handling, and Phase 9
+  transaction/FK/restart integrity, PySpark math/isolation/error handling, Phase 9
   dashboard metric/segment/RFM-distribution correctness, analysis isolation, incomplete
-  stages, empty/small cohorts, and API error handling.
+  stages, empty/small cohorts, API error handling, and Phase 10 export file contents,
+  formula-injection neutralization, safe download filenames, isolation and error paths.
 
   ## 4. API Surface
 
@@ -240,6 +254,7 @@ Pages are thin shells; their content is loaded by JavaScript from `/api/*`.
 | GET | `/api/analyses` | List analyses (id, source name, status, reference date, customers) newest-first (Phase 9) | 200 |
 | GET | `/api/analyses/<id>/dashboard` | Read-only dashboard payload: overview KPIs, segment breakdown + %, RFM distributions/summaries, stage flags (Phase 9) | 200 · 404 |
 | GET | `/api/analyses/<id>/customers` | Server-side paged/filtered/sorted customers (`search`,`segment`,`sort`,`direction`,`page`,`page_size`) (Phase 9) | 200 · 400 (bad params) · 404 |
+| GET | `/api/analyses/<id>/export` | Download persisted results (`format=csv\|xlsx`, `dataset=customers\|segments\|overview\|full`) as an attachment (Phase 10) | 200 (file) · 400 (bad format/dataset) · 404 · 409 (not completed) |
 
 ## 5. Data Pipeline Order
 
@@ -291,7 +306,13 @@ PySpark **never** touches the raw upload or the normalized file — only the val
 [7] DASHBOARD         GET /api/analyses[/<id>/dashboard|customers]   (Phase 9, read-only)
     dashboard_service composes persisted results only (never re-reads the raw upload)
     overview KPIs + segment breakdown/% + RFM distributions/summaries + paged customers
-    (EXPORT / recommendations remain Phase 10+, not yet implemented)
+        │
+        ▼
+[8] EXPORT            GET /api/analyses/<id>/export?format=csv|xlsx&dataset=...   (Phase 10)
+    gate: analysis must be completed (404 unknown, 409 otherwise)
+    export_service reuses dashboard_service + get_metrics; formula-injection-safe cells
+    customers / segments / overview datasets + full multi-sheet XLSX workbook
+    (recommendations remain Phase 11+, not yet implemented)
 ```
 
 **Upload/analysis status lifecycle**

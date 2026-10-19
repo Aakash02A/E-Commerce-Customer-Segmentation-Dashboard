@@ -72,6 +72,27 @@
     document.getElementById("info-ref").textContent = info.reference_date || "-";
     document.getElementById("link-segments").href = "/segments?analysis=" + encodeURIComponent(info.analysis_id);
     document.getElementById("link-customers").href = "/customers?analysis=" + encodeURIComponent(info.analysis_id);
+    renderExport(info);
+  }
+
+  // Point the export buttons at the current analysis; disable until completed.
+  function renderExport(info) {
+    const controls = document.getElementById("export-controls");
+    const disabledNote = document.getElementById("export-disabled");
+    const enabled = info.status === "completed";
+    controls.querySelectorAll("a[data-export]").forEach((a) => {
+      if (enabled) {
+        const q = new URLSearchParams({ format: a.dataset.export, dataset: a.dataset.dataset });
+        a.href = `/api/analyses/${encodeURIComponent(info.analysis_id)}/export?${q}`;
+        a.classList.remove("disabled");
+        a.removeAttribute("aria-disabled");
+      } else {
+        a.href = "#";
+        a.classList.add("disabled");
+        a.setAttribute("aria-disabled", "true");
+      }
+    });
+    disabledNote.classList.toggle("d-none", enabled);
   }
 
   function renderStageNote(stages) {

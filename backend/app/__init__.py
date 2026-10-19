@@ -45,6 +45,7 @@ def register_blueprints(app: Flask):
     from app.routes.validation import validation_bp
     from app.routes.analyses import analyses_bp
     from app.routes.dashboard import dashboard_bp
+    from app.routes.export import export_bp
 
     app.register_blueprint(pages_bp)
     app.register_blueprint(uploads_bp)
@@ -52,6 +53,7 @@ def register_blueprints(app: Flask):
     app.register_blueprint(validation_bp)
     app.register_blueprint(analyses_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(export_bp)
 
 
 def register_error_handlers(app: Flask):

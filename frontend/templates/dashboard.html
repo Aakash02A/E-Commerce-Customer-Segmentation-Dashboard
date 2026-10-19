@@ -78,6 +78,19 @@
     <a id="link-segments" class="btn btn-outline-primary" href="#"><i class="bi bi-people"></i> View Segments</a>
     <a id="link-customers" class="btn btn-outline-primary" href="#"><i class="bi bi-person-badge"></i> Explore Customers</a>
   </div>
+
+  <!-- Export (Phase 10): files are generated from this analysis's persisted results. -->
+  <h2 class="h5 mt-4 mb-2"><i class="bi bi-download"></i> Export</h2>
+  <div class="card"><div class="card-body">
+    <p class="text-secondary small mb-3">Download the persisted results for the selected analysis. Values match what is shown above; text cells are neutralized against spreadsheet formula injection.</p>
+    <div id="export-controls" class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-sm btn-primary" data-export="xlsx" data-dataset="full" href="#"><i class="bi bi-file-earmark-excel"></i> Excel Workbook (all)</a>
+      <a class="btn btn-sm btn-outline-secondary" data-export="csv" data-dataset="customers" href="#"><i class="bi bi-filetype-csv"></i> Customers CSV</a>
+      <a class="btn btn-sm btn-outline-secondary" data-export="csv" data-dataset="segments" href="#"><i class="bi bi-filetype-csv"></i> Segments CSV</a>
+      <a class="btn btn-sm btn-outline-secondary" data-export="csv" data-dataset="overview" href="#"><i class="bi bi-filetype-csv"></i> Overview CSV</a>
+    </div>
+    <div id="export-disabled" class="alert alert-secondary small d-none mb-0 mt-2"><i class="bi bi-info-circle"></i> Export becomes available once the analysis is completed.</div>
+  </div></div>
 </div>
 {% endblock %}
 

@@ -40,8 +40,7 @@ derive trustworthy customer-behavior metrics and segments — without hand-writi
 per-dataset scripts or trusting silently corrupted input.
 
 This project addresses that by enforcing a documented pipeline: upload → validate →
-map → normalize → quality-gate → Spark aggregation → RFM → segmentation → (planned)
-dashboard/export.
+map → normalize → quality-gate → Spark aggregation → RFM → segmentation → dashboard → export.
 
 ### 1.3 Project objectives
 
@@ -291,11 +290,24 @@ Analyses can be switched without mixing results, and unavailable stages are surf
 phase): date-range/country filters, revenue-by-segment and purchase-trend charts, repeat-customer
 rate, and rule-based recommendations (deferred; see Section 21).
 
-### FR-12: CSV/Excel export (planned — Phase 10)
+### FR-12: CSV/Excel export (implemented — Phase 10)
 
-Export customer metrics and segment summaries. Requirements: meaningful headers, UTF-8,
-correct escaping, mitigation of spreadsheet formula injection, values identical to those
-displayed, and correct handling of empty results.
+Export a user-selected **completed** analysis, scoped to one `analysis_id` and built only from
+persisted results (never a raw/unvalidated upload). `GET /api/analyses/<id>/export` accepts
+`format=csv|xlsx` and `dataset=customers|segments|overview|full`.
+
+- **Customers** — per-customer aggregates, RFM scores (R/F/M), segment assignment and optional
+  cluster label; **Segments** — count, share (%) and description; **Overview** — KPI key/value
+  pairs (revenue, distinct valid orders, AOV with its explicit definition, analyzed date range).
+  `full` produces a multi-sheet Excel workbook (Overview + Customers + Segments); CSV requires a
+  concrete dataset.
+- Requirements met: meaningful headers, UTF-8 (CSV written with a BOM for Excel), RFC-4180
+  escaping, **spreadsheet formula-injection mitigation** (text cells leading with `=`, `+`, `-`,
+  `@`, TAB or CR are neutralized with a leading quote), values identical to those displayed (same
+  `dashboard_service` / repository source of truth), and correct handling of empty results
+  (a headers-only file, not an error). Download filenames are built only from a whitelisted
+  dataset token plus the hex analysis id (no user text, no path separators). Errors are clean:
+  `404` unknown analysis, `409` non-completed analysis, `400` invalid format/dataset.
 
 ### FR-13: Analysis history and persistence
 
@@ -460,7 +472,8 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │       │   ├── mappings.py             # GET/POST mapping
 │       │   ├── validation.py           # GET/POST validate
 │       │   ├── analyses.py             # aggregate, rfm, segment, metrics
-│       │   └── dashboard.py            # GET /api/analyses, /<id>/dashboard, /<id>/customers
+│       │   ├── dashboard.py            # GET /api/analyses, /<id>/dashboard, /<id>/customers
+│       │   └── export.py               # GET /api/analyses/<id>/export (CSV/XLSX download)
 │       ├── services/
 │       │   ├── file_validation_service.py
 │       │   ├── file_reader_service.py
@@ -473,8 +486,8 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │       │   ├── segmentation_service.py
 │       │   ├── analysis_service.py
 │       │   ├── dashboard_service.py        # Phase 9 read-only dashboard assembly
-│       │   ├── recommendation_service.py   # (planned Phase 9+)
-│       │   └── export_service.py           # (planned Phase 10)
+│       │   ├── recommendation_service.py   # (planned Phase 11+)
+│       │   └── export_service.py           # Phase 10 CSV/XLSX export (formula-injection safe)
 │       ├── repositories/
 │       │   ├── upload_repository.py
 │       │   └── analysis_repository.py
@@ -752,7 +765,7 @@ Use pytest and the Flask test client. `tests/conftest.py` gives every test its o
 database and storage via a `build_app()` helper, uses a function-scoped Spark session
 (`local[1]`), and provides deterministic sample CSVs and standard/alternate mappings.
 
-### Current coverage — 111 passing, 1 pre-existing warning
+### Current coverage — 127 passing, 1 pre-existing warning
 
 - `test_uploads.py` — valid CSV/XLSX, empty, corrupt, unsupported, oversized, header-only,
   multi-sheet, path traversal.
@@ -773,6 +786,10 @@ database and storage via a `build_app()` helper, uses a function-scoped Spark se
   counts/percentages, RFM distributions/summaries, aggregate-only incomplete stage handled as
   unavailable-not-zero, customer search/filter/sort/pagination, cross-analysis isolation,
   single-customer cohort, 404 unknown id, 400 bad params, no path/traceback leakage.
+- `test_export.py` — customers/segments/overview CSV contents match persisted results and the
+  dashboard, full XLSX workbook sheets + numeric cells, cross-analysis isolation, formula-injection
+  neutralization (CSV and XLSX), headers-only empty cohort, 404/409/400 error paths, safe attachment
+  filename, no path/traceback leakage.
 
 ### Test honesty (mandatory)
 
@@ -818,8 +835,13 @@ Implemented in this order. Status reflects the verified current state.
   and a server-side customer explorer (search/filter/sort/paginate) driven from persisted results
   via `GET /api/analyses[/<id>/dashboard|customers]`; pages render real data with honest
   empty/unavailable states. (111 cumulative.) Rule-based recommendations remain deferred (see §21).
-- **Phase 10 — Export.** *Not started.* CSV/Excel export of customer metrics and segment
-  summaries, with formula-injection mitigation.
+- **Phase 10 — Export.** *Completed.* Read-only CSV/Excel export of a **completed** analysis scoped
+  by `analysis_id`, built from the same persisted results the dashboard shows: `customers`
+  (aggregates + RFM scores + segment + cluster), `segments` (count + share % + description),
+  `overview` (KPI key/value pairs incl. AOV + definition) and a `full` multi-sheet XLSX workbook;
+  `GET /api/analyses/<id>/export`. Spreadsheet formula injection is neutralized, filenames are
+  whitelisted, empty cohorts yield headers-only files, and 404/409/400 errors are clean.
+  (127 cumulative.)
 - **Phase 11 — Security, hardening & deployment.** *Not started.* Integration/regression
   testing, security headers, abuse controls, production WSGI/containerization, docs.
 
@@ -917,9 +939,10 @@ because code was generated. The project satisfies this when:
 - Results and history persist in SQLite and survive restarts; reruns do not duplicate.
 - (Phase 9+) The dashboard displays values derived from actual analysis; filters and charts
   work consistently; no fake/hardcoded metrics remain in the user journey.
-- (Phase 10+) Customer lists and reports export correctly.
-- Tests cover critical mapping, validation, analytics, persistence, dashboard, and edge cases; the
-  full suite is executed and reported honestly (currently **111 passing, 1 pre-existing warning**).
+- (Phase 10+) Customer lists and segment/overview reports export correctly to CSV/Excel, scoped to
+  a completed analysis, with formula-injection-safe cells and correct empty-result handling.
+- Tests cover critical mapping, validation, analytics, persistence, dashboard, export, and edge
+  cases; the full suite is executed and reported honestly (currently **127 passing, 1 pre-existing warning**).
 - Documentation matches the actual implementation, and known limitations are documented
   honestly.
 
@@ -927,17 +950,16 @@ because code was generated. The project satisfies this when:
 
 ## 19. Current Priorities
 
-Phases 0–9 are complete and verified (**111 passing, 1 pre-existing warning**). The immediate
+Phases 0–10 are complete and verified (**127 passing, 1 pre-existing warning**). The immediate
 next work, pending explicit approval, is:
 
-1. **Phase 10 — Export:** CSV/Excel export of metrics and segment summaries.
-2. **Phase 11 — Security, hardening & deployment docs.**
+1. **Phase 11 — Security, hardening & deployment docs.**
 
 Deferred dashboard follow-ons (still open, not part of the Phase 9 MVP): date-range/country
 filters, revenue-by-segment and purchase-trend charts, repeat-customer rate, and rule-based
 recommendations (see Section 21).
 
-Do not begin Phase 10 (or any tangential work) without approval.
+Do not begin Phase 11 (or any tangential work) without approval.
 
 ---
 
@@ -945,10 +967,12 @@ Do not begin Phase 10 (or any tangential work) without approval.
 
 Read `PROJECT_CONTEXT.md` completely and treat it as the primary requirements document. The
 repository is in the state described above: the full upload → mapping → validation → PySpark
-aggregation → RFM → segmentation → dashboard pipeline is implemented and tested (**111 passing,
-1 pre-existing warning**); export and hardening phases are intentionally not yet built.
+aggregation → RFM → segmentation → dashboard → export pipeline is implemented and tested
+(**127 passing, 1 pre-existing warning**); the security/hardening phase is intentionally not yet
+built.
 
-**Stop here and wait for explicit approval before beginning Phase 10 — Export.**
+**Stop here and wait for explicit approval before beginning Phase 11 — Security, hardening &
+deployment.**
 
 ---
 

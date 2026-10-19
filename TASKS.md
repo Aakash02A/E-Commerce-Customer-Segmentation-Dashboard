@@ -14,7 +14,7 @@
 | **Phase 7** | RFM Analysis (Recency / Frequency / Monetary scoring) | **Completed** | Tests passing (78/78), deterministic quintile scores persisted; 11 sample customers scored, recency anchored on `reference_date` |
 | **Phase 8** | Customer Segmentation (segment labels / clustering) | **Completed** | Tests passing (95/95), deterministic rule-based RFM segments (8 labels) persisted per analysis; optional numpy K-Means (self-evaluating, off by default) |
 | **Phase 9** | Analytics Dashboard & Visualization | **Completed** | Tests passing (111/111), read-only dashboard scoped by `analysis_id` (overview KPIs, segment distribution + %, RFM distributions/summaries, server-side customer explorer) rendered live via Chart.js; UI verified in running app |
-| **Phase 10** | CSV / Excel Export | **Not Started** | — |
+| **Phase 10** | CSV / Excel Export | **Completed** | Tests passing (127/127), completed-analysis-scoped CSV/XLSX export (customers, segments, overview + full workbook) from persisted results; formula-injection neutralized, safe filenames, empty/error handling verified |
 | **Phase 11** | Production Hardening & Deployment | **Not Started** | — |
 
 > Status legend: **Completed** = built and verified by automated tests · **Not Started** = roadmap phase.
@@ -248,9 +248,45 @@ K-Means stays off by default and segmentation rules were not changed.
 
 ---
 
-## Phase 10 Checklist (Not Started) — Export
+## Phase 10 Checklist (Completed) — CSV / Excel Export
 
-- [ ] Implement CSV/Excel export of customer metrics and segment summaries.
+Scope: downloadable exports of **persisted** results for one *completed*
+analysis, scoped by `analysis_id`. Recommendations, auth and multi-tenancy
+remain out of scope; no segmentation/RFM/dashboard logic was changed.
+
+- [x] Added `services/export_service.py`: a read-only assembly layer that reuses
+  `dashboard_service.build_dashboard` (overview + segment breakdown) and
+  `analysis_repository.get_metrics` (customer rows), so exported values are
+  identical to those displayed and never come from a raw/unvalidated upload.
+- [x] **Datasets:** `customers` (aggregates + RFM scores + segment + cluster
+  label + country), `segments` (count + share % + description), `overview`
+  (KPI key/value pairs incl. revenue, distinct orders, AOV + its definition,
+  analyzed date range), and `full` (an Excel workbook with all three sheets).
+- [x] **Formats:** RFC-4180 CSV (UTF-8 with BOM for Excel) via `csv`, and XLSX
+  via the already-pinned `openpyxl` (no new dependency). Numbers are written as
+  real numeric cells; only string cells pass through the sanitizer.
+- [x] **Security:** every text cell whose value starts with `=`, `+`, `-`, `@`,
+  TAB or CR is neutralized with a leading single quote (OWASP formula-injection
+  mitigation) in both CSV and XLSX; filenames are built only from a whitelisted
+  dataset token + the hex `analysis_id` (no user text, no path separators).
+- [x] Added thin blueprint `routes/export.py` (`/api`):
+  `GET /api/analyses/<id>/export?format=csv|xlsx&dataset=customers|segments|overview|full`
+  returning a `Content-Disposition: attachment` file. `404` unknown analysis,
+  `409` non-completed analysis, `400` invalid format/dataset (or CSV `full`);
+  serialization failures return a clean `500` with no path/traceback leakage.
+- [x] Registered the blueprint in `app/__init__.py`; `EXPORTS_DIR` already
+  existed in config (exports are generated in-memory and streamed, not written
+  to disk by default).
+- [x] Frontend: an **Export** panel on `dashboard.html` + `dashboard.js` wires
+  the workbook/CSV buttons to the current analysis and disables them until its
+  status is `completed` (no new framework).
+- [x] Added `tests/test_export.py` (16 tests: customers/segments/overview CSV
+  contents match persisted results and the dashboard, full XLSX has the three
+  sheets + correct row count, numeric Excel cells, cross-analysis isolation,
+  formula-injection neutralization in CSV and XLSX, headers-only empty cohort,
+  404/409/400 error paths, safe attachment filename, no traceback/path leakage).
+- [x] Verified full suite **127/127 passed** (111 prior + 16 new, zero regressions;
+  1 pre-existing pandas `to_datetime` warning in `test_validation.py`).
 
 ---
 
@@ -262,10 +298,11 @@ K-Means stays off by default and segmentation rules were not changed.
 
 ## Verification Commands
 
-- Install: `pip install -r backend/requirements.txt` (+ `pip install openpyxl`)
+- Install: `pip install -r backend/requirements.txt` (openpyxl is already pinned there)
 - Run: `cd backend && python run.py` → http://127.0.0.1:5000
-- Test (full suite): `cd backend && python -m pytest` → **95 passed**
+- Test (full suite): `cd backend && python -m pytest` → **127 passed**
 - Persistence restart check: `cd backend && python restart_check.py write` then `python restart_check.py read`
 - Aggregate a validated dataset: `POST /api/uploads/<id>/aggregate`
 - Score RFM for a completed analysis: `POST /api/analyses/<id>/rfm` → read via `GET /api/analyses/<id>/metrics`
 - Assign segments (after RFM): `POST /api/analyses/<id>/segment` (optional K-Means via `SEGMENTATION_ENABLE_KMEANS=1`)
+- Export a completed analysis: `GET /api/analyses/<id>/export?format=csv|xlsx&dataset=customers|segments|overview|full`
