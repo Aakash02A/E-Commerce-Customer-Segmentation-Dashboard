@@ -1,292 +1,209 @@
-# 📊 E-Commerce Customer Segmentation Dashboard
+# E-Commerce Customer Segmentation Dashboard
 
-A complete, production-ready system for segmenting e-commerce customers using Apache Spark and advanced machine learning. This full-stack application combines a powerful Flask backend with an intuitive web-based dashboard to unlock actionable insights from customer data.
+A full-stack, data-driven web application for segmenting e-commerce customers from their
+own transaction datasets. Users upload a CSV/Excel file, validate and map its columns to a
+standard schema, process the eligible transactions with **Apache PySpark**, compute **RFM**
+metrics, and assign interpretable **customer segments** — all backed by **SQLite**
+persistence. The interface is a real multi-page **Flask + Bootstrap 5 + Chart.js**
+application, not a static demo with hardcoded numbers.
 
----
-
-## 🎯 Features
-
-- **🔥 Apache Spark Integration** - Scalable distributed processing for large datasets
-- **🤖 Machine Learning** - KMeans clustering with feature engineering and normalization
-- **📊 Interactive Dashboard** - 6-page responsive web interface with visualizations
-- **📁 Easy Data Upload** - Simple CSV file upload with validation
-- **⚡ Real-time Job Monitoring** - Track segmentation jobs with live progress updates
-- **📈 Rich Visualizations** - Interactive charts and detailed segmentation analytics
-- **🔒 CORS-Enabled** - Secure frontend-backend communication
-- **📱 Responsive Design** - Works on desktop, tablet, and mobile devices
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.8 or higher
-- Apache Spark 3.5.0
-- Modern web browser
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Aakash02A/E-Commerce-Customer-Segmentation-Dashboard.git
-   cd E-Commerce-Customer-Segmentation-Dashboard
-   ```
-
-2. **Install Python dependencies**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
-
-3. **Start the backend server**
-   ```bash
-   python app.py
-   ```
-   Backend will run at `http://localhost:5000`
-
-4. **In a new terminal, start the frontend server**
-   ```bash
-   cd frontend
-   python serve.py
-   ```
-   Frontend will run at `http://localhost:8000`
-
-5. **Open your browser**
-   ```
-   http://localhost:8000
-   ```
+> **Project status:** Phases 0–8 (upload → mapping → validation → PySpark aggregation → RFM
+> → segmentation) are implemented and verified by an automated suite (**95/95 tests
+> passing**). The analytics dashboard, exports, and production hardening (Phases 9–11) are
+> not yet built — those pages currently render honest empty states rather than placeholder
+> metrics. See [TASKS.md](TASKS.md) for the phase tracker and
+> [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) / [ARCHITECTURE.md](ARCHITECTURE.md) for the full
+> specification and design.
 
 ---
 
-## 🎮 Usage Guide
+## Features
 
-### 1. **Home Page**
-   - View system status and Spark connection
-   - Quick start guide with 3-step process
-   - Feature overview and capabilities
-
-### 2. **Upload Data**
-   - Upload CSV file with customer data
-   - Required columns: Age, Spend, Recency, Frequency
-   - Supports up to 100 MB files
-   - Automatic validation and error handling
-
-### 3. **Job Monitor**
-   - Real-time progress tracking for segmentation jobs
-   - View job status, stage, and completion percentage
-   - Download results when complete
-   - Historical job tracking
-
-### 4. **Segmentation Results**
-   - Detailed breakdown of customer segments
-   - Segment characteristics and metrics
-   - Customer count per segment
-   - Export results to CSV
-
-### 5. **Visualization**
-   - Interactive charts and graphs
-   - Segment distribution analysis
-   - Feature-based visualizations
-   - Multi-dimensional insights
-
-### 6. **About**
-   - Project information and documentation
-   - Technology stack overview
-   - Contact and support information
+- **User-data-driven analytics** — every metric derives from the uploaded, validated dataset.
+- **File upload & preview** — CSV and XLSX, with worksheet selection, safe UUID-based storage,
+  path-traversal protection, and size/type validation.
+- **Automatic column mapping** — synonym + type/pattern detection with conservative confidence
+  scores, an interactive correction UI, and normalization to one standard schema.
+- **Data-quality gate (mandatory)** — structural and value checks with configurable,
+  non-destructive business rules (cancellations, returns, duplicates); blocks analysis when
+  required data is missing or unusable.
+- **PySpark processing** — hardened, shared Spark session; line totals and per-customer
+  aggregates (distinct orders, total quantity, total spend, first/last purchase date); bounded
+  collection only.
+- **Deterministic RFM** — quintile scores (Recency inverted) with tie-safe, order-independent
+  scoring anchored on an explicit reference date.
+- **Rule-based segmentation** — 8 documented, mutually exclusive segments (exactly one per
+  customer) plus an **optional**, reproducible, self-evaluating NumPy K-Means (off by default,
+  never overrides rule labels).
+- **SQLite persistence** — analyses and per-customer metrics scoped by `analysis_id`, surviving
+  restarts, with no cross-analysis contamination.
 
 ---
 
-## 📦 Technology Stack
+## Technology Stack
 
-### Backend
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| **Flask** | 2.3.3 | REST API framework |
-| **PySpark** | 3.5.0 | Distributed data processing |
-| **Pandas** | 2.0.3 | Data manipulation |
-| **Scikit-learn** | 1.3.0 | ML utilities |
-| **Flask-CORS** | 4.0.0 | Cross-origin support |
+| Layer | Technology |
+|---|---|
+| Frontend | HTML5, CSS3, Bootstrap 5, vanilla JavaScript, Chart.js, Jinja templates |
+| Backend | Python 3.13, Flask (app factory + blueprints), Flask-Cors |
+| Analytics | Pandas, NumPy |
+| Big-data | Apache PySpark 4.2.0 (on Java 21), optional K-Means via NumPy |
+| Database | SQLite (Python `sqlite3`, no ORM) |
+| Testing | pytest, Flask test client |
 
-### Frontend
-| Technology | Purpose |
-|-----------|---------|
-| **HTML5** | Semantic markup |
-| **CSS3** | Responsive styling |
-| **JavaScript (ES6+)** | Client-side logic |
-| **Chart.js** | Interactive visualizations |
+The application is server-rendered by a single Flask process — there is no separate frontend
+server and no React/FastAPI/MySQL. `pyarrow` and `scikit-learn` are intentionally **not** used.
 
 ---
 
-## 🔧 API Endpoints
+## Prerequisites
 
-### Core Endpoints
-- `GET /health` - Health check
-- `POST /upload` - Upload CSV file
-- `POST /segmentation-start` - Start segmentation job
-- `GET /job-status/<job_id>` - Get job status
-- `GET /segmentation-results/<job_id>` - Get results
-- `GET /download-results/<job_id>` - Download CSV results
-- `GET /jobs` - List all jobs
-- `GET /segment-summary/<job_id>` - Get segment summary
-- `GET /segment-metrics/<job_id>` - Get detailed metrics
-- `POST /validate-file` - Validate CSV structure
-- `GET /sample-data` - Get sample dataset
+- **Python 3.13**
+- **Java 21 (LTS)** — required by PySpark
+- A modern browser
+- OS: developed and verified locally on **Windows 11**
 
----
+Verify your runtimes:
 
-## 🧠 Machine Learning Pipeline
-
-The PySpark ML pipeline performs the following steps:
-
-1. **Data Loading** - Read CSV file into Spark DataFrame
-2. **Data Validation** - Check for required columns (Age, Spend, Recency, Frequency)
-3. **Preprocessing** - Handle missing values, remove outliers, normalize column names
-4. **Feature Engineering** - Create feature vectors from numeric columns
-5. **Scaling** - Standardize features using StandardScaler
-6. **Clustering** - Apply KMeans algorithm (default k=3 clusters)
-7. **Evaluation** - Calculate silhouette score and other metrics
-8. **Results Export** - Save predictions and segment summaries to CSV
-
-### Feature Set
-- **Age** - Customer age
-- **Spend** - Total spending amount
-- **Recency** - Days since last purchase
-- **Frequency** - Purchase frequency
-
----
-
-## 📊 Sample Data Format
-
-Upload CSV files with the following structure:
-
-```csv
-CustomerID,Age,Gender,Spend,Recency,Frequency
-CUST001,28,M,2500,15,8
-CUST002,45,F,1800,30,5
-CUST003,35,M,3200,7,12
-...
-```
-
-**Required Columns:**
-- Age (numeric)
-- Spend (numeric)
-- Recency (numeric)
-- Frequency (numeric)
-
-**Optional Columns:**
-- CustomerID (identifier)
-- Gender (categorical)
-- Any other customer attributes
-
----
-
-## 🛠️ Configuration
-
-### Backend Configuration (app.py)
-```python
-UPLOAD_DIR = 'uploads'           # Upload directory
-RESULTS_DIR = 'results'          # Results directory
-MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB limit
-ALLOWED_EXTENSIONS = {'csv'}     # Allowed file types
-```
-
-### Spark Configuration (spark_job.py)
-```python
-SPARK_APP_NAME = "CustomerSegmentation"
-NUMERIC_FEATURES = ['Age', 'Spend', 'Recency', 'Frequency']
-DEFAULT_K_CLUSTERS = 3           # Number of segments
+```powershell
+python --version    # 3.13.x
+java -version       # 21.x
 ```
 
 ---
 
-## 📝 Job Status Tracking
+## Quick Start
 
-Jobs are tracked through JSON status files stored in `backend/status/`:
+```powershell
+# 1. Install dependencies
+pip install -r backend/requirements.txt
 
-```json
-{
-  "job_id": "abc123def456",
-  "stage": "clustering",
-  "progress": 75,
-  "message": "Running KMeans clustering...",
-  "timestamp": "2025-12-10T14:30:45.123456"
-}
+# 2. Run the app (single Flask server serves pages + API)
+cd backend
+python run.py
 ```
 
-Stages include:
-- **loading** - Initial data loading
-- **preprocessing** - Data cleaning and validation
-- **feature_engineering** - Creating feature vectors
-- **scaling** - Normalizing features
-- **clustering** - Running KMeans algorithm
-- **evaluation** - Computing metrics
-- **saving** - Exporting results
-- **completed** - Job finished successfully
-- **error** - Job failed with error message
+Open **http://127.0.0.1:5000** in your browser. The SQLite database and `storage/` directories
+are created automatically on first run.
+
+Optional environment overrides (see `backend/.env.example`):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `FLASK_ENV` | `development` | Config profile (`development`/`testing`/`production`) |
+| `FLASK_RUN_HOST` / `FLASK_RUN_PORT` | `127.0.0.1` / `5000` | Bind address |
+| `DATABASE_PATH` | `database/ecommerce.db` | SQLite file |
+| `UPLOAD_DIR`, `PROCESSED_DIR`, `EXPORTS_DIR`, `TEMP_DIR` | under `storage/` | File storage |
+| `MAX_CONTENT_LENGTH` | `104857600` (100 MB) | Upload size limit |
+| `SPARK_MASTER` | `local[*]` | Spark master |
+| `SEGMENTATION_ENABLE_KMEANS` | `0` | Enable optional K-Means (`1` to turn on) |
+| `KMEANS_RANDOM_SEED` / `KMEANS_MAX_K` / `KMEANS_MIN_CUSTOMERS` | `42` / `5` / `10` | K-Means settings |
 
 ---
 
-## 🐛 Troubleshooting
+## Usage Workflow
 
-### Issue: Backend won't start
-**Solution:** 
-- Ensure Python 3.8+ is installed
-- Run `pip install -r requirements.txt`
-- Check that port 5000 is not in use
-- Verify all dependencies installed: `pip list | grep Flask`
+1. **Upload Data** — upload a CSV or XLSX transaction file (or use `sample_data/sample_retail.csv`).
+2. **Preview & Map** — review the detected columns and confirm/correct the mapping to the
+   standard schema.
+3. **Data Quality** — review the validation report; apply business rules; the dataset becomes
+   `ready_for_analysis` only when it passes.
+4. **Aggregate** — run the PySpark pipeline to compute per-customer aggregates.
+5. **RFM** — compute deterministic Recency/Frequency/Monetary scores.
+6. **Segment** — assign rule-based segments (and optional K-Means clusters).
+7. **Dashboard / Segments / Customers** — *(Phase 9)* interactive KPIs and charts; currently
+   empty states.
 
-### Issue: Spark job fails
-**Solution:**
-- Ensure Spark 3.5.0 is installed
-- Check Java is installed: `java -version`
-- Verify CSV has required columns: Age, Spend, Recency, Frequency
-- Check file size is under 100 MB
-
-### Issue: Frontend shows "Connection failed"
-**Solution:**
-- Verify backend is running on http://localhost:5000
-- Check browser console for errors (F12)
-- Ensure CORS is enabled in Flask
-- Try clearing browser cache
-
-### Issue: Results not showing
-**Solution:**
-- Wait for job to complete (check Job Monitor)
-- Verify data uploaded has at least 3 rows
-- Check backend logs for processing errors
-- Ensure write permissions on results directory
+A sample run on `sample_retail.csv` yields **11 customers**, 15 distinct orders, and 6 distinct
+segments, with the K-Means evaluator self-selecting `k=4` when enabled.
 
 ---
 
-## 📈 Performance Considerations
+## API Reference
 
-- **Small datasets (<1000 rows):** 5-10 seconds
-- **Medium datasets (1K-100K rows):** 20-60 seconds
-- **Large datasets (100K+ rows):** 2-5+ minutes
-- **Max file size:** 100 MB
-- **Optimal cluster count:** 3-5 segments for most use cases
+All API responses are JSON (`{"success": ..., "message": ..., "details": ...}` on error).
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/health` | Liveness check |
+| POST | `/api/uploads` | Upload a CSV/XLSX file |
+| GET | `/api/uploads` | List recent uploads |
+| GET | `/api/uploads/summary` | Counts by status |
+| GET | `/api/uploads/<id>` | One upload's metadata |
+| GET | `/api/uploads/<id>/preview` | Parsed preview (columns, sample rows) |
+| GET | `/api/uploads/<id>/sheets` | Worksheet names (XLSX) |
+| GET | `/api/uploads/<id>/mapping` | Detected columns + suggested mapping |
+| POST | `/api/uploads/<id>/mapping` | Confirm/correct mapping → normalize |
+| GET | `/api/uploads/<id>/validate` | Latest data-quality report |
+| POST | `/api/uploads/<id>/validate` | Run validation gate |
+| POST | `/api/uploads/<id>/aggregate` | Run PySpark pipeline → analysis |
+| GET | `/api/uploads/<id>/analyses` | Analyses for an upload |
+| GET | `/api/analyses/<id>` | One analysis |
+| POST | `/api/analyses/<id>/rfm` | Compute + persist RFM scores |
+| POST | `/api/analyses/<id>/segment` | Assign segments (+ optional clusters) |
+| GET | `/api/analyses/<id>/metrics` | Per-customer metrics |
+
+Page routes: `/` (home), `/upload`, `/mapping`, `/validation`, `/dashboard`, `/segments`,
+`/customers`, `/history`, `/settings`.
 
 ---
 
-## 🔐 Security Features
+## Data Contract
 
-- **CORS Protection** - Cross-origin requests properly managed
-- **File Validation** - CSV files validated before processing
-- **Size Limits** - Maximum file size enforced (100 MB)
-- **Extension Whitelist** - Only CSV files allowed
-- **Path Sanitization** - Secure filename handling with `secure_filename()`
-- **Error Handling** - Detailed errors logged, generic errors sent to frontend
+Uploaded files are normalized to a standard schema:
+
+| Field | Meaning | Requirement |
+|---|---|---|
+| `customer_id` | Customer identifier | Required |
+| `order_id` | Invoice/transaction id | Strongly recommended (needed for distinct-order frequency) |
+| `order_date` | Purchase date/timestamp | Required |
+| `quantity` | Units purchased | Required |
+| `unit_price` | Price per unit | Required |
+| `product_id` | Product identifier | Optional |
+| `product_description` | Product name/description | Optional |
+| `country` | Customer/transaction country | Optional |
+| `transaction_status` | Completed/cancelled/returned | Optional |
+
+Monetary value is computed as `line_total = quantity × unit_price`. Frequency counts **distinct
+orders**, not line items.
 
 ---
 
-## 🎓 Learning Resources
+## Testing
 
-This project demonstrates:
-- **Flask** - Building REST APIs with Python
-- **PySpark** - Distributed computing and ML pipelines
-- **Machine Learning** - Customer segmentation with KMeans
-- **Full-Stack Development** - Frontend-backend integration
-- **Data Engineering** - CSV processing and validation
-- **Web Development** - Responsive HTML/CSS/JavaScript
+From the `backend/` directory:
 
+```powershell
+python -m pytest
+```
+
+Current result: **95 passed**. Each test runs against an isolated SQLite DB and storage
+directory. The suite covers file handling, column mapping, validation, database persistence and
+restart survival, PySpark aggregation, RFM scoring, and segmentation (rules + K-Means).
+
+Persistence restart check:
+
+```powershell
+python restart_check.py write
+python restart_check.py read
+```
+
+---
+
+## Security & Limitations
+
+- **Local single-user MVP:** there is **no authentication or multi-tenancy**. Do not expose this
+  MVP publicly — uploads, results, and history are not user-isolated. A multi-user deployment
+  would require authentication and server-side ownership checks first.
+- Upload size limit (default 100 MB), safe filenames, path-traversal protection, and
+  parameterized SQL are enforced.
+- Internal errors are returned as clean messages/HTML pages — no stack traces, filesystem paths,
+  or credentials are exposed to clients.
+- PySpark runs locally; this project does **not** claim distributed, cluster-scale performance.
+- The dashboard, exports, and production hardening are **not yet implemented** (Phases 9–11).
+
+---
+
+## License
+
+See [LICENSE](LICENSE).
