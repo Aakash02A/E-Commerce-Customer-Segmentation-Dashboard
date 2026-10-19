@@ -112,3 +112,41 @@ def metrics_count(analysis_id: str) -> int:
     return get_db().execute(
         "SELECT COUNT(*) c FROM customer_metrics WHERE analysis_id = ?", (analysis_id,)
     ).fetchone()["c"]
+
+
+# --- RFM (Phase 7) -------------------------------------------------------
+def load_rfm_inputs(analysis_id: str) -> tuple[str | None, list[dict]]:
+    """Return (reference_date, [customer aggregates]) for RFM scoring.
+
+    Aggregates expose exactly what the RFM service needs: frequency (distinct
+    valid orders), monetary (total spend) and last_order_date.
+    """
+    row = get(analysis_id)
+    if row is None:
+        return None, []
+    aggregates = [
+        {
+            "customer_id": m["customer_id"],
+            "frequency": m["frequency"],
+            "monetary": m["monetary"],
+            "last_order_date": m["last_order_date"],
+        }
+        for m in get_metrics(analysis_id)
+    ]
+    return row["reference_date"], aggregates
+
+
+def update_rfm_scores(analysis_id: str, updates: list[dict]):
+    """Persist RFM values/scores for ONE analysis (never touches others).
+
+    Scopes every UPDATE by analysis_id, so results cannot leak across analyses.
+    Segment/cluster columns are intentionally not written here (Phase 8).
+    """
+    with transaction() as db:
+        for u in updates:
+            db.execute(
+                "UPDATE customer_metrics SET recency_days=?, r_score=?, f_score=?, "
+                "m_score=? WHERE analysis_id=? AND customer_id=?",
+                (u["recency_days"], u["r_score"], u["f_score"], u["m_score"],
+                 analysis_id, u["customer_id"]),
+            )

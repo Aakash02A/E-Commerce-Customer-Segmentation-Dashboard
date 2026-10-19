@@ -14,7 +14,7 @@ from pathlib import Path
 from flask import current_app
 
 from app.repositories import analysis_repository, upload_repository
-from app.services import pyspark_service
+from app.services import pyspark_service, rfm_service
 
 log = logging.getLogger("segmentation.analysis")
 
@@ -37,6 +37,13 @@ class NotReadyForAnalysis(AnalysisError):
 
 class SparkAnalysisFailed(AnalysisError):
     http_status = 500
+
+
+class AnalysisNotFound(AnalysisError):
+    http_status = 404
+
+    def __init__(self, message="Analysis not found."):
+        super().__init__(message)
 
 
 def _eligible_path_or_raise(row) -> Path:
@@ -109,3 +116,39 @@ def get_analysis(analysis_id: str):
 
 def list_for_upload(upload_id: str):
     return analysis_repository.list_for_upload(upload_id)
+
+
+def run_rfm_for_analysis(analysis_id: str) -> dict:
+    """Compute and persist deterministic RFM scores for a completed analysis.
+
+    RFM is derived only from the validated Phase 6 aggregates tied to this
+    analysis_id (never from raw uploads), so results cannot cross-contaminate
+    other analyses. Recency anchors on ``analyses.reference_date`` (falling back
+    to the most recent purchase date). Segment/cluster labels are Phase 8 and are
+    intentionally left untouched here.
+    """
+    row = analysis_repository.get(analysis_id)
+    if row is None:
+        raise AnalysisNotFound()
+    if row["status"] != "completed":
+        raise NotReadyForAnalysis(
+            "RFM analysis requires a completed aggregation. Run aggregation first."
+        )
+
+    reference_date, aggregates = analysis_repository.load_rfm_inputs(analysis_id)
+    if not aggregates:
+        # Valid but empty cohort: nothing to score (not an error).
+        return {"analysis_id": analysis_id, "status": "completed",
+                "reference_date": reference_date, "customers_scored": 0, "sample": []}
+
+    updates = rfm_service.calculate_rfm(reference_date, aggregates)
+    analysis_repository.update_rfm_scores(analysis_id, updates)
+
+    return {
+        "analysis_id": analysis_id,
+        "upload_id": row["upload_id"],
+        "status": "completed",
+        "reference_date": reference_date,
+        "customers_scored": len(updates),
+        "sample": updates[:5],
+    }

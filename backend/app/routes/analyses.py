@@ -45,6 +45,29 @@ def get_analysis(analysis_id):
     return success_response(data=_row_to_dict(row))
 
 
+@analyses_bp.post("/analyses/<analysis_id>/rfm")
+def run_rfm(analysis_id):
+    """Score the persisted customer aggregates for one completed analysis."""
+    try:
+        result = analysis_service.run_rfm_for_analysis(analysis_id)
+    except AnalysisError as exc:
+        return error_response(str(exc), status=exc.http_status)
+    return success_response(
+        data=result, message="RFM scoring complete. Customer scores are ready."
+    )
+
+
+@analyses_bp.get("/analyses/<analysis_id>/metrics")
+def analysis_metrics(analysis_id):
+    row = analysis_service.get_analysis(analysis_id)
+    if row is None:
+        return error_response("Analysis not found.", status=404)
+    metrics = [dict(m) for m in analysis_repository.get_metrics(analysis_id)]
+    return success_response(data={"analysis_id": analysis_id,
+                                   "reference_date": row["reference_date"],
+                                   "metrics": metrics})
+
+
 def _row_to_dict(row):
     return {
         "id": row["id"],
