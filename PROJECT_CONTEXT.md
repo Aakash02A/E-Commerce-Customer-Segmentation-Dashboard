@@ -260,13 +260,15 @@ K-Means is optional, separate from, and must never override the rule-based segme
 
 Implemented in Phase 8. Rule segments remain authoritative whether or not clustering runs.
 
-### FR-11: Multi-page dashboard (planned — Phase 9)
+### FR-11: Multi-page dashboard (implemented — Phase 9)
 
 A complete multi-page interface, not a single landing page.
 
 - Navigation: Home, Upload, Mapping, Data Quality, Analytics Dashboard, Customer Segments,
   Customer Details, Analysis History, Settings/About. (All page routes and templates exist;
-  dashboard/segments/details currently render honest empty states.)
+  `dashboard.html`, `customer_segments.html`, and `customer_details.html` now render real
+  results for a selected analysis via `/api/*`, with meaningful empty/unavailable states when
+  no data or stage is present.)
 - KPI cards: total customers analyzed, total eligible orders, total eligible revenue, average
   order value, average customer spend, repeat-customer rate when reliably computable.
 - Visualizations (Chart.js, driven by real API data): segment distribution, revenue by segment,
@@ -277,6 +279,17 @@ A complete multi-page interface, not a single landing page.
   segment — with pagination/search.
 
 Charts must be generated from API responses, never hardcoded example data.
+
+**Implemented in Phase 9 (verified).** Overview KPIs (customers, orders, revenue, quantity,
+average order value = revenue ÷ distinct valid orders, date range), segment distribution
+(counts + percentages, doughnut + table), RFM analytics (score distributions and
+recency/frequency/monetary summaries), and a server-side customer explorer (search, segment
+filter, column sort, pagination) are all driven from **persisted** analysis results scoped by
+`analysis_id` (`GET /api/analyses`, `/api/analyses/<id>/dashboard`, `/api/analyses/<id>/customers`).
+Analyses can be switched without mixing results, and unavailable stages are surfaced as
+"unavailable" rather than fake zeros. **Not in the Phase 9 MVP** (still required before their
+phase): date-range/country filters, revenue-by-segment and purchase-trend charts, repeat-customer
+rate, and rule-based recommendations (deferred; see Section 21).
 
 ### FR-12: CSV/Excel export (planned — Phase 10)
 
@@ -366,7 +379,7 @@ orchestration, pure computation, and persistence.
    then `rfm_service` scores RFM, then `segmentation_service` assigns segments (and optional
    clusters).
 6. Repositories persist compact results to SQLite, scoped by `analysis_id`.
-7. Routes return structured JSON; (planned Phase 9) the dashboard renders it with Chart.js.
+7. Routes return structured JSON; the dashboard renders it with Chart.js (Phase 9).
 
 ### Layer responsibilities
 
@@ -421,16 +434,17 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │   │   ├── upload.html
 │   │   ├── column_mapping.html
 │   │   ├── data_validation.html
-│   │   ├── dashboard.html              # empty state until Phase 9
-│   │   ├── customer_segments.html      # empty state until Phase 9
-│   │   ├── customer_details.html       # empty state until Phase 9
+│   │   ├── dashboard.html              # analytics dashboard (Phase 9)
+│   │   ├── customer_segments.html      # segment distribution + drill-down (Phase 9)
+│   │   ├── customer_details.html       # per-customer explorer (Phase 9)
 │   │   ├── analysis_history.html
 │   │   ├── settings.html
 │   │   ├── _steps.html
 │   │   └── errors/ (400.html, 404.html, 500.html)
 │   └── static/
 │       ├── css/style.css
-│       └── js/ (main.js, upload.js, column_mapping.js, validation.js, notifications.js)
+│       └── js/ (main.js, upload.js, column_mapping.js, validation.js, notifications.js,
+│               charts.js, dashboard.js, customer_segments.js, customer_details.js)
 │
 ├── backend/
 │   ├── run.py                          # entrypoint
@@ -445,7 +459,8 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │       │   ├── uploads.py              # upload/preview/sheets/summary
 │       │   ├── mappings.py             # GET/POST mapping
 │       │   ├── validation.py           # GET/POST validate
-│       │   └── analyses.py             # aggregate, rfm, segment, metrics
+│       │   ├── analyses.py             # aggregate, rfm, segment, metrics
+│       │   └── dashboard.py            # GET /api/analyses, /<id>/dashboard, /<id>/customers
 │       ├── services/
 │       │   ├── file_validation_service.py
 │       │   ├── file_reader_service.py
@@ -457,6 +472,7 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │       │   ├── rfm_service.py
 │       │   ├── segmentation_service.py
 │       │   ├── analysis_service.py
+│       │   ├── dashboard_service.py        # Phase 9 read-only dashboard assembly
 │       │   ├── recommendation_service.py   # (planned Phase 9+)
 │       │   └── export_service.py           # (planned Phase 10)
 │       ├── repositories/
@@ -523,6 +539,18 @@ error pages instead. Centralized handling lives in the app factory.
 - `POST /api/analyses/<analysis_id>/segment` — assign segments + optional clusters (requires
   RFM scores).
 - `GET /api/analyses/<analysis_id>/metrics` — per-customer metrics (RFM, segment, cluster).
+
+### Dashboard (`/api`) — Phase 9, read-only, scoped by `analysis_id`
+
+- `GET /api/analyses` — list analyses for the switcher (id, source name, status, reference date,
+  customers analyzed), newest first.
+- `GET /api/analyses/<analysis_id>/dashboard` — assemble the dashboard payload (overview KPIs,
+  segment breakdown + percentages, RFM distributions/summaries, stage flags) from persisted
+  results. `404` for an unknown analysis id.
+- `GET /api/analyses/<analysis_id>/customers` — server-side paged/filtered/sorted customer table
+  (`search`, `segment`, `sort`, `direction`, `page`, `page_size`). `400` for invalid params,
+  `404` for an unknown analysis id. Aggregation and paging happen in SQL, so full cohorts are
+  never loaded into the browser.
 
 ### Pipeline status values
 
@@ -619,9 +647,9 @@ vanilla JavaScript, and Chart.js. It is not a React SPA and must not be converte
 
 - `base.html` provides the layout, sidebar navigation, and shared asset blocks.
 - `_steps.html` shows pipeline progress. Each page is a dedicated template with a focused
-  JavaScript module (`upload.js`, `column_mapping.js`, `validation.js`, and — planned Phase 9
-  — `dashboard.js`/`charts.js`). `main.js` handles shared behavior; `notifications.js`
-  handles user feedback.
+  JavaScript module (`upload.js`, `column_mapping.js`, `validation.js`, and — Phase 9 —
+  `dashboard.js`, `customer_segments.js`, `customer_details.js`, `charts.js`). `main.js` handles
+  shared behavior; `notifications.js` handles user feedback.
 - Data flows through the `/api/...` JSON endpoints; pages call them with `fetch`/XHR.
 
 ### UX requirements
@@ -633,9 +661,10 @@ vanilla JavaScript, and Chart.js. It is not a React SPA and must not be converte
 - **No fake data presented as real results; no broken/inert controls; no decorative
   non-functional buttons; no charts that do not reflect the active analysis.**
 
-Because a real analysis has not been connected to it yet, `dashboard.html`,
-`customer_segments.html`, and `customer_details.html` currently render honest empty states
-rather than placeholder numbers.
+As of Phase 9, `dashboard.html`, `customer_segments.html`, and `customer_details.html` render
+values derived from a selected analysis's persisted results (never placeholder numbers), and
+show honest empty/unavailable states when there is no analysis, an unrun stage, or no customers
+matching a filter.
 
 ---
 
@@ -723,7 +752,7 @@ Use pytest and the Flask test client. `tests/conftest.py` gives every test its o
 database and storage via a `build_app()` helper, uses a function-scoped Spark session
 (`local[1]`), and provides deterministic sample CSVs and standard/alternate mappings.
 
-### Current coverage — 95/95 passing
+### Current coverage — 111 passing, 1 pre-existing warning
 
 - `test_uploads.py` — valid CSV/XLSX, empty, corrupt, unsupported, oversized, header-only,
   multi-sheet, path traversal.
@@ -740,6 +769,10 @@ database and storage via a `build_app()` helper, uses a function-scoped Spark se
 - `test_segmentation_service.py` — every label boundary, missing-value fallback, full-grid
   exactly-one + reachability, K-Means skip/reproducibility/missing/k-by-evaluation,
   persistence, rerun idempotency, isolation, restart survival.
+- `test_dashboard.py` — overview metrics vs aggregate, revenue == customer-metric sum, segment
+  counts/percentages, RFM distributions/summaries, aggregate-only incomplete stage handled as
+  unavailable-not-zero, customer search/filter/sort/pagination, cross-analysis isolation,
+  single-customer cohort, 404 unknown id, 400 bad params, no path/traceback leakage.
 
 ### Test honesty (mandatory)
 
@@ -780,9 +813,11 @@ Implemented in this order. Status reflects the verified current state.
 - **Phase 8 — Customer segmentation.** *Completed.* 8 deterministic rule segments (exactly
   one each) + optional self-evaluating NumPy K-Means (off by default); `POST /segment`.
   (95 cumulative.)
-- **Phase 9 — Analytics dashboard & visualization.** *Not started.* Connect real API data to
-  KPI cards, Chart.js charts, tables, and filters; populate the empty-state pages. Add
-  rule-based recommendations clearly separated from predictions.
+- **Phase 9 — Analytics dashboard & visualization.** *Completed.* Read-only dashboard scoped by
+  `analysis_id`: overview KPIs, segment distribution (counts + %), RFM distributions/summaries,
+  and a server-side customer explorer (search/filter/sort/paginate) driven from persisted results
+  via `GET /api/analyses[/<id>/dashboard|customers]`; pages render real data with honest
+  empty/unavailable states. (111 cumulative.) Rule-based recommendations remain deferred (see §21).
 - **Phase 10 — Export.** *Not started.* CSV/Excel export of customer metrics and segment
   summaries, with formula-injection mitigation.
 - **Phase 11 — Security, hardening & deployment.** *Not started.* Integration/regression
@@ -883,8 +918,8 @@ because code was generated. The project satisfies this when:
 - (Phase 9+) The dashboard displays values derived from actual analysis; filters and charts
   work consistently; no fake/hardcoded metrics remain in the user journey.
 - (Phase 10+) Customer lists and reports export correctly.
-- Tests cover critical mapping, validation, analytics, persistence, and edge cases; the full
-  suite is executed and reported honestly (currently **95/95**).
+- Tests cover critical mapping, validation, analytics, persistence, dashboard, and edge cases; the
+  full suite is executed and reported honestly (currently **111 passing, 1 pre-existing warning**).
 - Documentation matches the actual implementation, and known limitations are documented
   honestly.
 
@@ -892,17 +927,17 @@ because code was generated. The project satisfies this when:
 
 ## 19. Current Priorities
 
-Phases 0–8 are complete and verified (95/95). The immediate next work, pending explicit
-approval, is:
+Phases 0–9 are complete and verified (**111 passing, 1 pre-existing warning**). The immediate
+next work, pending explicit approval, is:
 
-1. **Phase 9 — Analytics Dashboard & Visualization:** add the dashboard data service/endpoint
-   and connect real API results to KPI cards, Chart.js charts, segment tables, and filters on
-   `dashboard.html`, `customer_segments.html`, and `customer_details.html`; implement rule-based
-   recommendations clearly separated from predictions.
-2. **Phase 10 — Export:** CSV/Excel export of metrics and segment summaries.
-3. **Phase 11 — Security, hardening & deployment docs.**
+1. **Phase 10 — Export:** CSV/Excel export of metrics and segment summaries.
+2. **Phase 11 — Security, hardening & deployment docs.**
 
-Do not begin Phase 9 (or any tangential work) without approval.
+Deferred dashboard follow-ons (still open, not part of the Phase 9 MVP): date-range/country
+filters, revenue-by-segment and purchase-trend charts, repeat-customer rate, and rule-based
+recommendations (see Section 21).
+
+Do not begin Phase 10 (or any tangential work) without approval.
 
 ---
 
@@ -910,12 +945,10 @@ Do not begin Phase 9 (or any tangential work) without approval.
 
 Read `PROJECT_CONTEXT.md` completely and treat it as the primary requirements document. The
 repository is in the state described above: the full upload → mapping → validation → PySpark
-aggregation → RFM → segmentation pipeline is implemented and tested (95/95), and the dashboard,
-export, and hardening phases are intentionally not yet built (their pages render honest empty
-states).
+aggregation → RFM → segmentation → dashboard pipeline is implemented and tested (**111 passing,
+1 pre-existing warning**); export and hardening phases are intentionally not yet built.
 
-**Stop here and wait for explicit approval before beginning Phase 9 — Analytics Dashboard &
-Visualization.**
+**Stop here and wait for explicit approval before beginning Phase 10 — Export.**
 
 ---
 
