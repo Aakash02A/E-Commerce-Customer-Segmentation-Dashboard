@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Home · Customer Segmentation Dashboard{% endblock %}
+{% block content %}
+<div class="row align-items-center mb-4">
+  <div class="col">
+    <h1 class="page-title h2 mb-1">E-Commerce Customer Segmentation</h1>
+    <p class="text-secondary mb-0">Upload your transaction data, map columns, validate quality, and explore RFM-driven customer segments.</p>
+  </div>
+</div>
+
+<div class="row g-3 mb-4" id="status-cards">
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="kpi-icon" style="background:#eff6ff;color:#3b82f6"><i class="bi bi-database"></i></div>
+        <div>
+          <div class="kpi-value" id="stat-analyses">…</div>
+          <div class="kpi-label">Saved Analyses</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="kpi-icon" style="background:#f0fdf4;color:#22c55e"><i class="bi bi-file-earmark-data"></i></div>
+        <div>
+          <div class="kpi-value" id="stat-ready">…</div>
+          <div class="kpi-label">Datasets Ready</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="kpi-icon" style="background:#fefce8;color:#eab308"><i class="bi bi-hdd"></i></div>
+        <div>
+          <div class="kpi-value text-success" id="stat-backend">…</div>
+          <div class="kpi-label">Backend Status</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  {% set steps = [
+    ('1', 'Upload Dataset', 'Upload a CSV or Excel file of your store transactions.', 'upload', 'bi-upload'),
+    ('2', 'Map Columns', 'Confirm automatically detected column mappings to the standard schema.', 'mapping', 'bi-diagram-3'),
+    ('3', 'Validate Data', 'Review the data-quality report before analysis is enabled.', 'validation', 'bi-shield-check'),
+    ('4', 'Explore Dashboard', 'See RFM segments, KPIs, and interactive charts from your data.', 'dashboard', 'bi-speedometer2'),
+  ] %}
+  {% for num, title, desc, href, icon in steps %}
+  <div class="col-md-6 col-xl-3">
+    <a class="card text-decoration-none h-100 step-card" href="{{ url_for('pages.' + href) }}">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="badge rounded-pill" style="background:var(--brand)">{{ num }}</span>
+          <i class="bi {{ icon }} fs-5 text-primary"></i>
+        </div>
+        <h5 class="card-title h6">{{ title }}</h5>
+        <p class="card-text text-secondary small mb-0">{{ desc }}</p>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(async function loadHome() {
+  try {
+    await api("/api/health");
+    document.getElementById("stat-backend").textContent = "Online";
+  } catch (e) {
+    const el = document.getElementById("stat-backend");
+    el.textContent = "Offline";
+    el.classList.replace("text-success", "text-danger");
+  }
+  try {
+    const res = await api("/api/uploads/summary");
+    document.getElementById("stat-analyses").textContent = formatNumber(res.data.total_uploads);
+    document.getElementById("stat-ready").textContent = formatNumber(res.data.ready_for_analysis);
+  } catch (e) {
+    document.getElementById("stat-analyses").textContent = "0";
+    document.getElementById("stat-ready").textContent = "0";
+  }
+})();
+</script>
+{% endblock %}

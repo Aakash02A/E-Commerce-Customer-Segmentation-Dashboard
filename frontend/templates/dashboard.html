@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Analytics Dashboard{% endblock %}
+{% block content %}
+{% set active_step = 'dashboard' %}
+{% include "_steps.html" %}
+<h1 class="page-title h3 mb-3">Analytics Dashboard</h1>
+<div class="empty-state">
+  <i class="bi bi-speedometer2"></i>
+  <h4>No analysis yet</h4>
+  <p class="mb-3">The RFM segmentation dashboard (KPIs, charts, and segment insights) is produced by the PySpark analysis pipeline in <strong>Phase 6–8</strong>. Complete Upload → Mapping → Validation first.</p>
+  <a class="btn btn-primary" href="{{ url_for('pages.upload') }}">Start with an Upload</a>
+</div>
+{% endblock %}

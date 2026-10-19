@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Flask / app runtime
+backend/instance/
+database/
+backend/.restart_check/
+backend/.example_run/
+storage/uploads/*
+storage/processed/*
+storage/exports/*
+storage/temp/*
+!storage/uploads/.gitkeep
+!storage/processed/.gitkeep
+!storage/exports/.gitkeep
+!storage/temp/.gitkeep
+*.log
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment
+.env
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

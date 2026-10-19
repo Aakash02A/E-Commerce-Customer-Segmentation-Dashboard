@@ -1,0 +1,13 @@
+{# Reusable workflow step indicator. Set `active_step` before including. #}
+{% set steps = ['Upload', 'Mapping', 'Validation', 'Analysis', 'Dashboard'] %}
+{% set order = {'upload': 0, 'mapping': 1, 'validation': 2, 'dashboard': 4} %}
+{% set cur = order.get(active_step, -1) %}
+<div class="steps">
+  {% for label in steps %}
+    {% set idx = loop.index0 %}
+    <div class="step {% if idx == cur %}active{% elif idx < cur %}done{% endif %}">
+      {% if idx < cur %}<i class="bi bi-check-lg"></i>{% else %}<span>{{ idx + 1 }}</span>{% endif %}
+      {{ label }}
+    </div>
+  {% endfor %}
+</div>

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Data Quality Report{% endblock %}
+{% block content %}
+{% set active_step = 'validation' %}
+{% include "_steps.html" %}
+
+<h1 class="page-title h3 mb-1">Data Quality Report</h1>
+<p class="text-secondary">Validation runs before analysis is enabled. Required-field problems and unusable data block the pipeline.</p>
+
+<div id="val-empty" class="empty-state d-none">
+  <i class="bi bi-shield-check"></i>
+  <h4>No mapped dataset</h4>
+  <p>Upload and map a dataset first.</p>
+  <a class="btn btn-primary" href="{{ url_for('pages.upload') }}">Go to Upload</a>
+</div>
+
+<div id="val-content" class="d-none">
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="card-title h6">Business-Rule Handling <small class="text-secondary">(configurable)</small></h5>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label small">Cancelled transactions</label>
+          <select id="rule-cancelled" class="form-select form-select-sm">
+            <option value="exclude">Exclude from analysis</option>
+            <option value="keep">Keep</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">Negative quantities (returns)</label>
+          <select id="rule-negqty" class="form-select form-select-sm">
+            <option value="exclude">Exclude</option>
+            <option value="keep">Keep as returns</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">Duplicate rows</label>
+          <select id="rule-dup" class="form-select form-select-sm">
+            <option value="keep">Keep (may be legitimate)</option>
+            <option value="drop">Drop</option>
+          </select>
+        </div>
+      </div>
+      <button id="run-validation" class="btn btn-primary mt-3"><i class="bi bi-play-circle"></i> Run Validation</button>
+    </div>
+  </div>
+
+  <div id="report-wrap" class="d-none">
+    <div class="row g-3 mb-3" id="report-cards"></div>
+    <div class="alert" id="report-status"></div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title h6">Checks &amp; Findings</h5>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light"><tr><th>Issue</th><th>Detail</th><th class="text-end">Rows</th></tr></thead>
+            <tbody id="report-checks"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between">
+      <a class="btn btn-outline-secondary" href="{{ url_for('pages.mapping') }}"><i class="bi bi-arrow-left"></i> Back to Mapping</a>
+      <button id="continue-analysis" class="btn btn-success" disabled>Proceed to Analysis <i class="bi bi-arrow-right"></i></button>
+    </div>
+    <p class="text-secondary small mt-2 mb-0" id="analysis-note"></p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/validation.js') }}"></script>
+{% endblock %}

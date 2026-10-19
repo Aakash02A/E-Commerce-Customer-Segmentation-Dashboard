@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Upload Dataset{% endblock %}
+{% block content %}
+{% set active_step = 'upload' %}
+{% include "_steps.html" %}
+
+<h1 class="page-title h3 mb-3">Upload Dataset</h1>
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-body">
+        <div id="dropzone" class="dropzone">
+          <i class="bi bi-cloud-arrow-up"></i>
+          <h5 class="mt-2 mb-1">Drag &amp; drop your file</h5>
+          <p class="text-secondary mb-3">or click to browse — CSV or Excel (.xlsx), up to 100&nbsp;MB</p>
+          <input type="file" id="file-input" class="d-none" accept=".csv,.xlsx" />
+          <button class="btn btn-primary" type="button" id="browse-btn"><i class="bi bi-folder2-open"></i> Choose File</button>
+        </div>
+
+        <div id="sheet-selector" class="mt-3 d-none">
+          <label class="form-label">Select worksheet</label>
+          <select id="sheet-select" class="form-select"></select>
+        </div>
+
+        <div class="progress mt-3 d-none" id="upload-progress-wrap" style="height:24px">
+          <div class="progress-bar progress-bar-striped progress-bar-animated" id="upload-progress" style="width:0%">0%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title h6">Dataset Summary</h5>
+        <div id="upload-summary" class="text-secondary">
+          No file uploaded yet. Once uploaded we will validate the file, preview the data, and detect column mappings.
+        </div>
+        <div id="continue-wrap" class="d-grid mt-3 d-none">
+          <a id="continue-mapping" class="btn btn-success" href="#">
+            Continue to Column Mapping <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4 d-none" id="preview-card">
+  <div class="card-body">
+    <h5 class="card-title h6 mb-3">Data Preview <span class="text-secondary small">(first rows)</span></h5>
+    <div class="table-scroll" id="preview-table"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+{% endblock %}

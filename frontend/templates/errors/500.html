@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}500 Server Error{% endblock %}
+{% block content %}
+<div class="empty-state">
+  <i class="bi bi-cone-striped"></i>
+  <h3>500 · Internal Server Error</h3>
+  <p>Something went wrong on the server. Please try again shortly.</p>
+  <a class="btn btn-primary" href="{{ url_for('pages.home') }}">Back to Home</a>
+</div>
+{% endblock %}
