@@ -57,6 +57,18 @@ def run_rfm(analysis_id):
     )
 
 
+@analyses_bp.post("/analyses/<analysis_id>/segment")
+def run_segment(analysis_id):
+    """Assign interpretable RFM segments (and optional clusters) for one analysis."""
+    try:
+        result = analysis_service.run_segmentation_for_analysis(analysis_id)
+    except AnalysisError as exc:
+        return error_response(str(exc), status=exc.http_status)
+    return success_response(
+        data=result, message="Segmentation complete. Customer segments are ready."
+    )
+
+
 @analyses_bp.get("/analyses/<analysis_id>/metrics")
 def analysis_metrics(analysis_id):
     row = analysis_service.get_analysis(analysis_id)

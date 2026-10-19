@@ -150,3 +150,38 @@ def update_rfm_scores(analysis_id: str, updates: list[dict]):
                 (u["recency_days"], u["r_score"], u["f_score"], u["m_score"],
                  analysis_id, u["customer_id"]),
             )
+
+
+# --- Segmentation (Phase 8) ---------------------------------------------
+def load_segmentation_inputs(analysis_id: str) -> list[dict]:
+    """Return the persisted RFM rows (scores + aggregates) for one analysis."""
+    return [
+        {
+            "customer_id": m["customer_id"],
+            "r_score": m["r_score"],
+            "f_score": m["f_score"],
+            "m_score": m["m_score"],
+            "frequency": m["frequency"],
+            "monetary": m["monetary"],
+            "recency_days": m["recency_days"],
+        }
+        for m in get_metrics(analysis_id)
+    ]
+
+
+def update_segments(analysis_id: str, assignments: list[dict]):
+    """Persist segment (and optional cluster) labels for ONE analysis.
+
+    Every UPDATE is scoped by analysis_id and keyed by the
+    UNIQUE(analysis_id, customer_id) constraint, so re-runs overwrite in place
+    (no duplicates, no stale rows) and never touch another analysis. Passing an
+    assignment without a ``cluster_label`` clears it, so disabling K-Means after
+    a prior run cannot leave a stale cluster behind.
+    """
+    with transaction() as db:
+        for a in assignments:
+            db.execute(
+                "UPDATE customer_metrics SET segment=?, cluster_label=? "
+                "WHERE analysis_id=? AND customer_id=?",
+                (a["segment"], a.get("cluster_label"), analysis_id, a["customer_id"]),
+            )

@@ -35,6 +35,18 @@ class Config:
     SPARK_MASTER = os.getenv("SPARK_MASTER", "local[*]")
     SPARK_APP_NAME = "CustomerSegmentationAnalytics"
 
+    # --- Segmentation (Phase 8) ---------------------------------------
+    # Rule-based RFM segmentation is always the authoritative, interpretable
+    # label. K-Means clustering is OPTIONAL and off by default: on small/real
+    # MVP cohorts it rarely adds reliable signal, and it must never override a
+    # rule-based segment. Enable via env only after reviewing its evaluation.
+    SEGMENTATION_ENABLE_KMEANS = os.getenv("SEGMENTATION_ENABLE_KMEANS", "0") == "1"
+    KMEANS_RANDOM_SEED = int(os.getenv("KMEANS_RANDOM_SEED", 42))  # reproducible
+    KMEANS_MAX_K = int(os.getenv("KMEANS_MAX_K", 5))
+    # Below this many score-complete customers we skip clustering entirely
+    # (inertia/elbow is not trustworthy on tiny cohorts).
+    KMEANS_MIN_CUSTOMERS = int(os.getenv("KMEANS_MIN_CUSTOMERS", 10))
+
     # --- Misc -----------------------------------------------------------
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-local-single-user")
     JSON_SORT_KEYS = False

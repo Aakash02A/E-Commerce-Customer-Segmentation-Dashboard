@@ -14,7 +14,7 @@ from pathlib import Path
 from flask import current_app
 
 from app.repositories import analysis_repository, upload_repository
-from app.services import pyspark_service, rfm_service
+from app.services import pyspark_service, rfm_service, segmentation_service
 
 log = logging.getLogger("segmentation.analysis")
 
@@ -151,4 +151,67 @@ def run_rfm_for_analysis(analysis_id: str) -> dict:
         "reference_date": reference_date,
         "customers_scored": len(updates),
         "sample": updates[:5],
+    }
+
+
+def run_segmentation_for_analysis(analysis_id: str) -> dict:
+    """Assign interpretable RFM segments (and optional K-Means clusters).
+
+    Requires a *completed* analysis whose RFM scores are persisted (run the RFM
+    step first). Segments are rule-based and authoritative; K-Means, when enabled
+    and evaluable, only adds an auxiliary cluster id and never overrides a
+    segment. All writes are scoped to this analysis_id.
+    """
+    row = analysis_repository.get(analysis_id)
+    if row is None:
+        raise AnalysisNotFound()
+    if row["status"] != "completed":
+        raise NotReadyForAnalysis(
+            "Segmentation requires a completed analysis. Run aggregation first."
+        )
+
+    inputs = analysis_repository.load_segmentation_inputs(analysis_id)
+    if not inputs:
+        return {"analysis_id": analysis_id, "status": "completed",
+                "customers_segmented": 0, "segment_counts": {}, "clustering": None}
+
+    if all(i["r_score"] is None for i in inputs):
+        raise NotReadyForAnalysis(
+            "RFM scores are required before segmentation. Run the RFM step first."
+        )
+
+    # Rule-based segments (always computed).
+    rule_assignments = segmentation_service.assign_segments(inputs)
+    by_customer = {a["customer_id"]: dict(a, cluster_label=None) for a in rule_assignments}
+
+    # Optional K-Means (kept separate; never overrides a segment).
+    clustering = None
+    if current_app.config.get("SEGMENTATION_ENABLE_KMEANS"):
+        clustering = segmentation_service.run_kmeans(
+            inputs,
+            k_max=current_app.config.get("KMEANS_MAX_K", 5),
+            min_customers=current_app.config.get("KMEANS_MIN_CUSTOMERS", 10),
+            seed=current_app.config.get("KMEANS_RANDOM_SEED", 42),
+        )
+        if clustering.get("ran"):
+            for cid, label in clustering["cluster_by_customer"].items():
+                if cid in by_customer:
+                    by_customer[cid]["cluster_label"] = label
+
+    assignments = list(by_customer.values())
+    analysis_repository.update_segments(analysis_id, assignments)
+
+    counts = segmentation_service.segment_counts(assignments)
+    return {
+        "analysis_id": analysis_id,
+        "upload_id": row["upload_id"],
+        "status": "completed",
+        "customers_segmented": len(assignments),
+        "segment_counts": counts,
+        "clustering": (
+            {"ran": clustering["ran"], "reason": clustering.get("reason", ""),
+             "k": clustering.get("k"), "inertia_curve": clustering.get("inertia_curve", {})}
+            if clustering is not None
+            else {"ran": False, "reason": "disabled", "k": None, "inertia_curve": {}}
+        ),
     }
