@@ -13,7 +13,7 @@
 | **Phase 6** | PySpark Integration (line totals + customer aggregates) | **Completed** | Tests passing (63/63), Spark 4.2.0 aggregates verified, pyarrow-free |
 | **Phase 7** | RFM Analysis (Recency / Frequency / Monetary scoring) | **Completed** | Tests passing (78/78), deterministic quintile scores persisted; 11 sample customers scored, recency anchored on `reference_date` |
 | **Phase 8** | Customer Segmentation (segment labels / clustering) | **Completed** | Tests passing (95/95), deterministic rule-based RFM segments (8 labels) persisted per analysis; optional numpy K-Means (self-evaluating, off by default) |
-| **Phase 9** | Analytics Dashboard & Visualization | **Not Started** | — |
+| **Phase 9** | Analytics Dashboard & Visualization | **Completed** | Tests passing (111/111), read-only dashboard scoped by `analysis_id` (overview KPIs, segment distribution + %, RFM distributions/summaries, server-side customer explorer) rendered live via Chart.js; UI verified in running app |
 | **Phase 10** | CSV / Excel Export | **Not Started** | — |
 | **Phase 11** | Production Hardening & Deployment | **Not Started** | — |
 
@@ -193,10 +193,58 @@ recommendations and exports are Phase 9+.
 
 ---
 
-## Phase 9 Checklist (Not Started) — Analytics Dashboard
+## Phase 9 Checklist (Completed) — Analytics Dashboard & Visualization
 
-- [ ] Build Chart.js visualizations and KPI cards for segments and metrics.
-- [ ] Populate `dashboard.html`, `customer_segments.html`, and `customer_details.html` (currently honest empty states).
+Scope: read-only visualization of **persisted** analysis results, scoped per
+`analysis_id`. Recommendations, exports, auth and multi-tenancy are deferred;
+K-Means stays off by default and segmentation rules were not changed.
+
+- [x] `services/dashboard_service.py`: a pure, read-only assembly module (no
+  writes) that composes overview KPIs, segment breakdown and RFM analytics from
+  persisted rows + the Spark `summary_json` rollup. Documents the 8 segment labels.
+- [x] **Overview metrics** from the completed analysis rollup: eligible customers,
+  valid orders, total revenue, total quantity, **average order value** (defined as
+  revenue ÷ distinct valid orders, returned with an explicit `aov_definition`), and
+  the analyzed `date_range` (first/last order date).
+- [x] **Segmentation**: per-segment count + percentage (`count/segmented`, parts sum
+  to ~100%), ordered by the canonical label ladder, each with a description;
+  `available:false` distinguishes an un-run stage from a real zero.
+- [x] **RFM analytics**: score distributions (recency/frequency/monetary, values
+  1–5) built via SQL `GROUP BY`, plus min/max/avg/count summaries for recency_days,
+  frequency, monetary and total_quantity. Distributions/summaries are omitted (not
+  faked as 0) when the RFM stage has not run.
+- [x] **Customer explorer**: server-side search, segment filter, whitelisted-column
+  sort, and `LIMIT/OFFSET` pagination — the full cohort is never loaded into the
+  browser. Returns `{items,total,page,page_size,pages}` with a clean empty page.
+- [x] **Analysis info + switcher**: `GET /api/analyses` lists analyses (id, source
+  dataset name, status, reference date, customers analyzed) newest-first so users
+  switch without mixing results; every read is scoped by `analysis_id`.
+- [x] Added read methods to `analysis_repository.py` (`list_all_with_sources`,
+  `stage_flags`, `segment_distribution`, `score_distribution`, `metric_summaries`,
+  `list_customers`) — SQL-side aggregation, parameterized values, whitelisted sort
+  columns to prevent injection.
+- [x] Added thin blueprint `routes/dashboard.py` (`/api`): `GET /api/analyses`,
+  `GET /api/analyses/<id>/dashboard`, `GET /api/analyses/<id>/customers`. 404 on
+  unknown analysis, 400 on invalid pagination params; registered in `app/__init__.py`.
+- [x] Frontend (Bootstrap 5 + Chart.js 4.4.3 + vanilla JS, no new framework):
+  `static/js/charts.js` (palette + chart registry that destroys before redraw),
+  rebuilt `dashboard.html`/`.js` (KPIs, segment doughnut + table, RFM summary cards
+  + score bar charts, stage notes), `customer_segments.html`/`.js` (distribution +
+  segment cards linking to filtered customers), and `customer_details.html`/`.js`
+  (search/filter/sort/paginate table with meaningful empty states + `aria-sort`).
+  `validation.js` "Proceed to Analysis" now runs aggregate → RFM → segment and
+  opens the dashboard on real data.
+- [x] Added `tests/test_dashboard.py` (16 tests: empty list, overview matches
+  aggregate, revenue equals customer-metric sum, segment counts/percentages, RFM
+  distributions cover all scored customers, aggregate-only incomplete stage handled
+  as unavailable-not-zero, pagination/sort/search/segment-filter, cross-analysis
+  isolation, single-customer cohort (neutral bin 3 / 100%), 404s, bad-pagination
+  400, no path/traceback leakage, `/metrics` regression, analyses list).
+- [x] Verified full suite **111/111 passed** (95 prior + 16 new, zero regressions).
+- [x] Live UI verification in the running app over `sample_retail.csv`: dashboard,
+  segments and customers pages render real data (11 customers, 15 orders, revenue
+  258.90, quantity 142, AOV 17.26, range 2010-12-01→2010-12-20; 6 segments; search,
+  sort, segment drill-down and empty state confirmed) with no console/API errors.
 
 ---
 

@@ -97,7 +97,23 @@
       <td>${escapeHtml(msg)}</td><td class="text-end">${count}</td></tr>`;
   }
 
-  proceedBtn.addEventListener("click", () => {
-    Notifications.info("Analysis pipeline (RFM via PySpark) is Phase 6–7. Validation foundation is complete and verified.");
+  // Run the full analysis pipeline (aggregate -> RFM -> segment) for this upload,
+  // then remember the analysis and open the dashboard.
+  proceedBtn.addEventListener("click", async () => {
+    proceedBtn.disabled = true;
+    proceedBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing…';
+    try {
+      const agg = await api(`/api/uploads/${uploadId}/aggregate`, { method: "POST", body: "{}" });
+      const aid = agg.data.analysis_id;
+      await api(`/api/analyses/${aid}/rfm`, { method: "POST", body: "{}" });
+      await api(`/api/analyses/${aid}/segment`, { method: "POST", body: "{}" });
+      Session.setAnalysisId(aid);
+      Notifications.success("Analysis complete. Opening dashboard…");
+      setTimeout(() => { window.location.href = "/dashboard"; }, 500);
+    } catch (e) {
+      Notifications.error(e.message);
+      proceedBtn.disabled = false;
+      proceedBtn.innerHTML = 'Proceed to Analysis <i class="bi bi-arrow-right"></i>';
+    }
   });
 })();

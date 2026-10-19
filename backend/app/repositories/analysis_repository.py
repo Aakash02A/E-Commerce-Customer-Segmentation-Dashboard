@@ -169,6 +169,121 @@ def load_segmentation_inputs(analysis_id: str) -> list[dict]:
     ]
 
 
+# --- Dashboard reads (Phase 9) ------------------------------------------
+# All queries are scoped by analysis_id and aggregated in SQL, so the dashboard
+# never loads a full cohort into memory. Sort/filter columns are whitelisted to
+# keep every value parameterized (no SQL injection through query params).
+_SCORE_COLUMNS = {"recency": "r_score", "frequency": "f_score", "monetary": "m_score"}
+_SORTABLE_COLUMNS = {
+    "customer_id", "recency_days", "frequency", "monetary", "total_quantity",
+    "r_score", "f_score", "m_score", "segment", "first_order_date", "last_order_date",
+}
+
+
+def list_all_with_sources(limit: int = 100) -> list[sqlite3.Row]:
+    """Analyses joined to their source filename, newest first (analysis switcher)."""
+    return get_db().execute(
+        """SELECT a.id, a.upload_id, a.status, a.reference_date, a.created_at,
+                  a.completed_at, u.original_filename AS source_name,
+                  (SELECT COUNT(*) FROM customer_metrics cm WHERE cm.analysis_id = a.id)
+                      AS customers_analyzed
+             FROM analyses a LEFT JOIN uploads u ON u.id = a.upload_id
+            ORDER BY a.created_at DESC, a.rowid DESC LIMIT ?""",
+        (limit,)).fetchall()
+
+
+def get_source_name(analysis_id: str) -> str | None:
+    row = get_db().execute(
+        "SELECT u.original_filename AS n FROM analyses a "
+        "LEFT JOIN uploads u ON u.id = a.upload_id WHERE a.id = ?",
+        (analysis_id,)).fetchone()
+    return row["n"] if row else None
+
+
+def stage_flags(analysis_id: str) -> dict:
+    """How far this analysis has progressed across the staged pipeline.
+
+    ``rfm_scored``/``segmented`` count non-NULL values so the caller can tell an
+    incomplete stage (data not available yet) from a genuine zero.
+    """
+    row = get_db().execute(
+        """SELECT COUNT(*) AS total_customers, COUNT(r_score) AS rfm_scored,
+                  COUNT(segment) AS segmented
+             FROM customer_metrics WHERE analysis_id = ?""",
+        (analysis_id,)).fetchone()
+    return {"total_customers": row["total_customers"], "rfm_scored": row["rfm_scored"],
+            "segmented": row["segmented"]}
+
+
+def segment_distribution(analysis_id: str) -> list[dict]:
+    rows = get_db().execute(
+        """SELECT segment, COUNT(*) AS c FROM customer_metrics
+            WHERE analysis_id = ? AND segment IS NOT NULL
+            GROUP BY segment""",
+        (analysis_id,)).fetchall()
+    return [{"segment": r["segment"], "count": r["c"]} for r in rows]
+
+
+def score_distribution(analysis_id: str, metric: str) -> list[dict]:
+    col = _SCORE_COLUMNS.get(metric)
+    if col is None:
+        raise ValueError(f"Unknown RFM metric: {metric}")
+    rows = get_db().execute(
+        f"SELECT {col} AS score, COUNT(*) AS c FROM customer_metrics "
+        f"WHERE analysis_id = ? AND {col} IS NOT NULL GROUP BY {col} ORDER BY {col}",
+        (analysis_id,)).fetchall()
+    return [{"score": r["score"], "count": r["c"]} for r in rows]
+
+
+def _single_summary(analysis_id: str, col: str) -> dict:
+    row = get_db().execute(
+        f"SELECT MIN({col}) AS mn, MAX({col}) AS mx, AVG({col}) AS av, "
+        f"COUNT({col}) AS n FROM customer_metrics WHERE analysis_id = ?",
+        (analysis_id,)).fetchone()
+    if not row or row["n"] == 0:
+        return {"available": False, "count": 0, "min": None, "max": None, "avg": None}
+    return {"available": True, "count": row["n"], "min": row["mn"], "max": row["mx"],
+            "avg": round(row["av"], 2) if row["av"] is not None else None}
+
+
+def metric_summaries(analysis_id: str) -> dict:
+    """Descriptive stats for the raw recency/frequency/monetary/quantity values."""
+    return {
+        "recency_days": _single_summary(analysis_id, "recency_days"),
+        "frequency": _single_summary(analysis_id, "frequency"),
+        "monetary": _single_summary(analysis_id, "monetary"),
+        "total_quantity": _single_summary(analysis_id, "total_quantity"),
+    }
+
+
+def list_customers(analysis_id: str, *, search: str | None = None,
+                    segment: str | None = None, sort: str = "monetary",
+                    direction: str = "desc", limit: int = 20,
+                    offset: int = 0) -> tuple[list[dict], int]:
+    """One paginated, filterable page of customer rows + the total match count."""
+    sort_col = sort if sort in _SORTABLE_COLUMNS else "monetary"
+    dir_sql = "DESC" if str(direction).lower() == "desc" else "ASC"
+
+    where = ["analysis_id = ?"]
+    params: list = [analysis_id]
+    if segment:
+        where.append("segment = ?")
+        params.append(segment)
+    if search:
+        where.append("customer_id LIKE ?")
+        params.append(f"%{search}%")
+    clause = " AND ".join(where)
+
+    rows = get_db().execute(
+        f"SELECT * FROM customer_metrics WHERE {clause} "
+        f"ORDER BY {sort_col} {dir_sql}, customer_id ASC LIMIT ? OFFSET ?",
+        params + [limit, offset]).fetchall()
+    total = get_db().execute(
+        f"SELECT COUNT(*) AS c FROM customer_metrics WHERE {clause}", params
+    ).fetchone()["c"]
+    return [dict(r) for r in rows], total
+
+
 def update_segments(analysis_id: str, assignments: list[dict]):
     """Persist segment (and optional cluster) labels for ONE analysis.
 

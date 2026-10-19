@@ -24,6 +24,13 @@ const Session = {
   clearUploadId() {
     localStorage.removeItem("active_upload_id");
   },
+  // The analysis currently shown on the dashboard/segments/customers pages.
+  getAnalysisId() {
+    return localStorage.getItem("active_analysis_id");
+  },
+  setAnalysisId(id) {
+    localStorage.setItem("active_analysis_id", id);
+  },
 };
 
 // Consistent JSON API helper. Throws on network or success=false.

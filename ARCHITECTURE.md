@@ -28,6 +28,8 @@ stage only ever consumes a *validated, eligible* dataset.
       R/F/M scoring from aggregates
   • segmentation_service (Phase 8)
     - rule-based segments + optional numpy K-Means
+  • dashboard_service (Phase 9)
+    - read-only analytics assembly (scoped by analysis_id)
   • data_quality_service
     - configurable rules
     - eligible row selection
@@ -52,11 +54,15 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │   ├── static/
 │   │   ├── css/style.css              # Bootstrap 5 design-system overrides
 │   │   └── js/                        # Vanilla JS page controllers
-│   │       ├── main.js                # Shared API helper, session, formatters
+│   │       ├── main.js                # Shared API helper, session (upload/analysis), formatters
 │   │       ├── notifications.js       # Toast / alert helpers
 │   │       ├── upload.js              # Drag-drop upload + preview
 │   │       ├── column_mapping.js      # Mapping editor UI
-│   │       └── validation.js          # Data-quality rule UI
+│   │       ├── validation.js          # Data-quality rule UI + proceed-to-analysis pipeline
+│   │       ├── charts.js              # Chart.js palette + registry (destroy-before-redraw)
+│   │       ├── dashboard.js           # Phase 9 KPIs, segment doughnut, RFM bar charts, switcher
+│   │       ├── customer_segments.js   # Phase 9 segment distribution + drill-down cards
+│   │       └── customer_details.js    # Phase 9 server-side search/filter/sort/paginate table
 │   └── templates/                     # Jinja2 templates served by Flask
 │       ├── base.html                  # Layout + sidebar navigation
 │       ├── _steps.html                # Workflow step indicator partial
@@ -65,9 +71,9 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │       ├── column_mapping.html        # Step 2 — Automatic column mapping
 │       ├── data_validation.html       # Step 3 — Validation & quality report
 │       ├── analysis_history.html      # Dataset / analysis history
-│       ├── dashboard.html             # Analytics dashboard (Phase 8+, empty state)
-│       ├── customer_segments.html     # Segmentation view (Phase 7+, empty state)
-│       ├── customer_details.html      # Per-customer detail (Phase 7+, empty state)
+│       ├── dashboard.html             # Phase 9 analytics dashboard (KPIs, charts, RFM)
+│       ├── customer_segments.html     # Phase 9 segment distribution + drill-down
+│       ├── customer_details.html      # Phase 9 per-customer table (search/sort/paginate)
 │       ├── settings.html              # About / pipeline / tech stack
 │       └── errors/                    # 400 / 404 / 500 pages
 │
@@ -80,7 +86,7 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │   │   │   └── schema.sql             # uploads, data_quality_reports, analyses, customer_metrics
 │   │   ├── repositories/              # SQLite data-access layer (no Flask/Spark deps)
 │   │   │   ├── upload_repository.py   # uploads + reports, atomic write, write guards
-│   │   │   └── analysis_repository.py # analyses + customer_metrics persistence
+│   │   │   └── analysis_repository.py # analyses + customer_metrics persistence; Phase 9 SQL-aggregated dashboard reads
 │   │   ├── services/                  # Pure processing layers (framework-agnostic)
 │   │   │   ├── file_validation_service.py
 │   │   │   ├── file_reader_service.py
@@ -91,13 +97,15 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │   │   │   ├── pyspark_service.py     # Spark session, line totals, customer aggregates
 │   │   │   ├── rfm_service.py         # Phase 7 deterministic quintile RFM scoring (pure)
 │   │   │   ├── segmentation_service.py# Phase 8 rule-based segments + optional K-Means
+│   │   │   ├── dashboard_service.py   # Phase 9 read-only dashboard assembly (scoped by analysis_id)
 │   │   │   └── analysis_service.py    # integrity -> Spark/RFM/segment -> persist
 │   │   ├── routes/                    # Flask blueprints (thin HTTP layer)
 │   │   │   ├── pages.py               # HTML page routes
 │   │   │   ├── uploads.py             # POST /api/uploads, preview, sheets, list
 │   │   │   ├── mappings.py            # GET/POST /api/uploads/<id>/mapping
 │   │   │   ├── validation.py          # GET/POST /api/uploads/<id>/validate
-│   │   │   └── analyses.py            # aggregate, rfm, segment, metrics endpoints
+│   │   │   ├── analyses.py            # aggregate, rfm, segment, metrics endpoints
+│   │   │   └── dashboard.py           # Phase 9 GET /api/analyses, /<id>/dashboard, /<id>/customers
 │   │   └── utils/                     # file_utils, response_utils, logging_utils
 │   ├── tests/                         # pytest suite (isolated DB + storage per test)
 │   │   ├── conftest.py                # fixtures, build_app(), prepare_ready_upload()
@@ -108,7 +116,8 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │   │   ├── test_pyspark_service.py    # Spark math, parsing, isolation, errors
 │   │   ├── test_analyses.py           # integration + SQLite compatibility
 │   │   ├── test_rfm_service.py        # Phase 7 RFM scoring, ties, persistence
-│   │   └── test_segmentation_service.py # Phase 8 segments, K-Means, isolation
+│   │   ├── test_segmentation_service.py # Phase 8 segments, K-Means, isolation
+│   │   └── test_dashboard.py          # Phase 9 metrics, segments, RFM dists, isolation, errors
 │   ├── .env.example                   # Environment configuration template
 │   ├── pytest.ini                     # pythonpath=., testpaths=tests
 │   ├── requirements.txt               # Flask, pandas, PySpark, openpyxl, ...
@@ -135,8 +144,9 @@ E-Commerce-Customer-Segmentation-Dashboard/
 
 - **Frontend (Jinja templates + vanilla JS):** Server-rendered multi-page UI with a
   Bootstrap 5 shell and sidebar; drives the upload → mapping → validation → analysis
-  workflow via `fetch` calls to `/api/*`, and renders charts with Chart.js. Pages for
-  later phases show honest empty states.
+  workflow via `fetch` calls to `/api/*`, and renders charts with Chart.js. The Phase 9
+  dashboard, segments and customers pages render persisted analysis results (with
+  meaningful empty/unavailable states); pages for later phases stay as honest empty states.
 - **Backend API (`backend/app/routes/` + `__init__.py`):** Flask blueprints form a thin
   HTTP layer — request parsing, multipart upload security (UUID filenames, path-traversal
   neutralization, magic-number checks), centralized JSON/HTML error handling, and `/api/health`.
@@ -165,6 +175,13 @@ E-Commerce-Customer-Segmentation-Dashboard/
   numpy K-Means (no new dependency, off by default) is kept separate, self-evaluates `k`
   by an inertia elbow, skips safely on small/constant/missing cohorts, and never overrides
   the rule-based segment.
+- **Dashboard Assembly (`dashboard_service.py`, Phase 9):** A pure, **read-only** layer that
+  composes the analytics payload entirely from persisted results — overview KPIs sourced from
+  the Spark `summary_json` rollup (AOV = revenue ÷ distinct valid orders, date range from
+  first/last purchase), segment counts + percentages, RFM score distributions and metric
+  summaries, and stage flags. Every read is scoped by `analysis_id`; unavailable stages are
+  surfaced as `available:false` (never faked as zero). Aggregation happens in SQL (`GROUP BY`,
+  `LIMIT/OFFSET`) so full cohorts are never loaded into the browser.
 - **Orchestration (`analysis_service.py`):** Enforces the integrity rules that only a
   `ready_for_analysis` dataset with a present eligible file may be aggregated, binds each
   analysis to exactly one upload, and gates the staged pipeline (aggregate → RFM → segment),
@@ -176,7 +193,9 @@ E-Commerce-Customer-Segmentation-Dashboard/
   Flask and Spark concerns.
 - **Testing (`backend/tests/`):** Pytest suite with per-test isolated DB/storage,
   covering file handling, mapping, quality rules, full-pipeline E2E, persistence/
-  transaction/FK/restart integrity, and PySpark math/isolation/error handling.
+  transaction/FK/restart integrity, PySpark math/isolation/error handling, and Phase 9
+  dashboard metric/segment/RFM-distribution correctness, analysis isolation, incomplete
+  stages, empty/small cohorts, and API error handling.
 
   ## 4. API Surface
 
@@ -191,9 +210,9 @@ Pages are thin shells; their content is loaded by JavaScript from `/api/*`.
 | GET | `/upload` | `upload.html` | 1 — Upload & preview |
 | GET | `/mapping` | `column_mapping.html` | 2 — Column mapping |
 | GET | `/validation` | `data_validation.html` | 3 — Validation & quality |
-| GET | `/dashboard` | `dashboard.html` | Analytics (Phase 8+, empty state) |
-| GET | `/segments` | `customer_segments.html` | Segmentation (Phase 7+, empty state) |
-| GET | `/customers` | `customer_details.html` | Per-customer detail (Phase 7+, empty state) |
+| GET | `/dashboard` | `dashboard.html` | Phase 9 — Analytics dashboard (KPIs, charts, RFM) |
+| GET | `/segments` | `customer_segments.html` | Phase 9 — Segment distribution + drill-down |
+| GET | `/customers` | `customer_details.html` | Phase 9 — Per-customer table (search/sort/paginate) |
 | GET | `/history` | `analysis_history.html` | Dataset / analysis history |
 | GET | `/settings` | `settings.html` | About / pipeline / stack |
 
@@ -218,6 +237,9 @@ Pages are thin shells; their content is loaded by JavaScript from `/api/*`.
 | POST | `/api/analyses/<id>/rfm` | Compute + persist deterministic RFM scores (Phase 7) | 200 · 404 · 409 (not completed) |
 | POST | `/api/analyses/<id>/segment` | Assign rule-based segments (+ optional K-Means) (Phase 8) | 200 · 404 · 409 (no RFM yet) |
 | GET | `/api/analyses/<id>/metrics` | Per-customer aggregates + RFM scores + segments | 200 · 404 |
+| GET | `/api/analyses` | List analyses (id, source name, status, reference date, customers) newest-first (Phase 9) | 200 |
+| GET | `/api/analyses/<id>/dashboard` | Read-only dashboard payload: overview KPIs, segment breakdown + %, RFM distributions/summaries, stage flags (Phase 9) | 200 · 404 |
+| GET | `/api/analyses/<id>/customers` | Server-side paged/filtered/sorted customers (`search`,`segment`,`sort`,`direction`,`page`,`page_size`) (Phase 9) | 200 · 400 (bad params) · 404 |
 
 ## 5. Data Pipeline Order
 
@@ -266,7 +288,10 @@ PySpark **never** touches the raw upload or the normalized file — only the val
     analysis_repository.update_segments
         │
         ▼
-[7] DASHBOARD / EXPORT          (Phase 9+, not yet implemented)
+[7] DASHBOARD         GET /api/analyses[/<id>/dashboard|customers]   (Phase 9, read-only)
+    dashboard_service composes persisted results only (never re-reads the raw upload)
+    overview KPIs + segment breakdown/% + RFM distributions/summaries + paged customers
+    (EXPORT / recommendations remain Phase 10+, not yet implemented)
 ```
 
 **Upload/analysis status lifecycle**

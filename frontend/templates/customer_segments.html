@@ -3,11 +3,41 @@
 {% block content %}
 {% set active_step = 'dashboard' %}
 {% include "_steps.html" %}
-<h1 class="page-title h3 mb-3">Customer Segments</h1>
-<div class="empty-state">
-  <i class="bi bi-people"></i>
-  <h4>No segments yet</h4>
-  <p class="mb-3">RFM segments (Champions, At-Risk, Loyalists, etc.) are assigned in the analysis pipeline (Phase 7).</p>
-  <a class="btn btn-primary" href="{{ url_for('pages.upload') }}">Upload Data</a>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+  <h1 class="page-title h3 mb-0">Customer Segments</h1>
+  <div class="d-flex align-items-center gap-2">
+    <label class="form-label mb-0 text-secondary small" for="analysis-select">Analysis</label>
+    <select id="analysis-select" class="form-select form-select-sm" style="min-width: 260px" aria-label="Select analysis"></select>
+  </div>
 </div>
+<p class="text-secondary">Rule-based RFM segments for the selected analysis. Percentages are of the segmented population. Click a segment to explore its customers.</p>
+
+<div id="seg-empty" class="empty-state d-none">
+  <i class="bi bi-people"></i>
+  <h4>No segments available</h4>
+  <p class="mb-3">Complete aggregation, RFM scoring and segmentation to see customer segments.</p>
+  <a class="btn btn-primary" href="{{ url_for('pages.dashboard') }}">Go to Dashboard</a>
+</div>
+<div id="seg-error" class="alert alert-danger d-none"></div>
+
+<div id="seg-content" class="d-none">
+  <div class="row g-3 mb-4">
+    <div class="col-lg-6"><div class="card h-100"><div class="card-body">
+      <h2 class="card-title h6">Segment Distribution</h2>
+      <div style="height:320px"><canvas id="seg-chart"></canvas></div>
+    </div></div></div>
+    <div class="col-lg-6"><div class="card h-100"><div class="card-body">
+      <h2 class="card-title h6">Overview</h2>
+      <div id="seg-summary" class="mb-3"></div>
+      <p class="small text-secondary mb-0">Segments are assigned by documented, mutually exclusive RFM rules — exactly one segment per scored customer.</p>
+    </div></div></div>
+  </div>
+  <div class="row g-3" id="seg-cards"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/customer_segments.js') }}"></script>
 {% endblock %}

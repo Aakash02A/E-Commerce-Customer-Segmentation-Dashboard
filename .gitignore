@@ -11,6 +11,7 @@ backend/instance/
 database/
 backend/.restart_check/
 backend/.example_run/
+backend/.phase9_verify/
 storage/uploads/*
 storage/processed/*
 storage/exports/*

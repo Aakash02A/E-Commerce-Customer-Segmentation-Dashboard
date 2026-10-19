@@ -109,6 +109,15 @@ body {
   margin-bottom: 0.75rem;
 }
 
+/* Dashboard segment cards */
+.seg-card {
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.seg-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.1);
+}
+
 /* Step indicator */
 .steps {
   display: flex;
