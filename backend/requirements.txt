@@ -6,3 +6,9 @@ openpyxl==3.1.5
 PySpark==4.2.0
 pytest==8.3.3
 python-dotenv==1.0.1
+
+# Production WSGI servers (Phase 11, Task 1)
+# Waitress: native Windows / cross-platform launcher (backend/serve.py).
+waitress==3.0.2
+# Gunicorn: Linux/Docker only (backend/wsgi.py); POSIX-only, skipped on Windows installs.
+gunicorn==23.0.0; sys_platform != "win32"
