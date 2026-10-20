@@ -5,6 +5,7 @@ from flask import Flask, jsonify, render_template, request
 
 from app.config import FRONTEND_DIR, get_config
 from app.database.connection import close_db, init_db
+from app.services.security_service import register_security_headers
 from app.utils.logging_utils import configure_logging
 
 log = logging.getLogger("segmentation")
@@ -30,6 +31,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
     register_blueprints(app)
     register_error_handlers(app)
+    register_security_headers(app)
 
     @app.get("/api/health")
     def health():

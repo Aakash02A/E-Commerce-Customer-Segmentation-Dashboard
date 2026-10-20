@@ -51,6 +51,20 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-local-single-user")
     JSON_SORT_KEYS = False
 
+    # --- Security headers / CSP (Phase 11) ------------------------------
+    # Emitted on HTML/JSON responses. See app/services/security_service.py.
+    SECURITY_HEADERS_ENABLED = os.getenv("SECURITY_HEADERS_ENABLED", "1") == "1"
+    # The ONLY external origin the frontend loads (Bootstrap/Bootstrap-Icons/
+    # Chart.js). script-src stays strict ('self' + this host); inline scripts
+    # are being externalized so 'unsafe-inline' is NOT required for scripts.
+    CDN_ORIGIN = os.getenv("CDN_ORIGIN", "https://cdn.jsdelivr.net")
+    # style-src needs 'unsafe-inline' because Bootstrap JS + Chart.js set element
+    # styles at runtime (measured: zero inline style= attributes in our templates).
+    CSP_STYLE_SOURCES = ["'self'", os.getenv("CDN_ORIGIN", "https://cdn.jsdelivr.net"), "'unsafe-inline'"]
+    CSP_FRAME_ANCESTORS = os.getenv("CSP_FRAME_ANCESTORS", "'none'")
+    X_FRAME_OPTIONS = os.getenv("X_FRAME_OPTIONS", "DENY")
+    REFERRER_POLICY = os.getenv("REFERRER_POLICY", "no-referrer")
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
