@@ -1,88 +1,179 @@
-# E-Commerce Customer Segmentation Dashboard
+<p align="center">
+  <img src="assets/banner.png" alt="E-Commerce Customer Segmentation Dashboard" width="100%" />
+</p>
 
-A full-stack, data-driven web application for segmenting e-commerce customers from their
-own transaction datasets. Users upload a CSV/Excel file, validate and map its columns to a
-standard schema, process the eligible transactions with **Apache PySpark**, compute **RFM**
-metrics, and assign interpretable **customer segments** — all backed by **SQLite**
-persistence. The interface is a real multi-page **Flask + Bootstrap 5 + Chart.js**
-application, not a static demo with hardcoded numbers.
+<h1 align="center">E-Commerce Customer Segmentation Dashboard</h1>
 
-> **Project status:** Phases 0–11 are implemented and verified by an automated suite
-> (**233 passed, 1 pre-existing warning**). The full pipeline — upload → mapping →
-> validation → PySpark aggregation → RFM → segmentation → **dashboard** → **CSV/Excel
-> export** — runs on real data, and Phase 11 adds security headers/CSP, rate limiting,
-> production WSGI servers (Waitress/Gunicorn) and a tested **Docker** deployment. For
-> deployment and operations see [DEPLOYMENT.md](DEPLOYMENT.md); for the phase tracker see
-> [TASKS.md](TASKS.md) and for the specification/design see
-> [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) / [ARCHITECTURE.md](ARCHITECTURE.md).
+<p align="center">
+  A full-stack, data-driven analytics platform that turns raw e-commerce transactions into
+  interpretable RFM customer segments — powered by Flask, Apache PySpark and Chart.js.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.13-3776ab?style=flat-square&logo=python&logoColor=white" alt="Python 3.13" />
+  <img src="https://img.shields.io/badge/Flask-3.0-000000?style=flat-square&logo=flask&logoColor=white" alt="Flask" />
+  <img src="https://img.shields.io/badge/PySpark-4.2-E25A1C?style=flat-square&logo=apachespark&logoColor=white" alt="PySpark" />
+  <img src="https://img.shields.io/badge/SQLite-07404E?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License" />
+</p>
 
 ---
+
+> **Project status:** Phases 0–11 are implemented and verified by an automated suite
+> (**233 passed, 1 pre-existing warning**). The full pipeline — upload → mapping → validation →
+> PySpark aggregation → RFM → segmentation → **dashboard** → **CSV/Excel export** — runs on real
+> data. Phase 11 adds strict CSP + security headers, rate limiting, production WSGI servers
+> (Waitress/Gunicorn) and a tested **Docker** deployment.
+
+## Table of Contents
+
+- [Table of Contents](#table-of-contents)
+- [Why it matters](#why-it-matters)
+- [Features](#features)
+- [Technology stack](#technology-stack)
+- [Architecture](#architecture)
+- [Processing pipeline](#processing-pipeline)
+- [Prerequisites](#prerequisites)
+- [Quick start](#quick-start)
+  - [Option A — one-click (Windows)](#option-a--one-click-windows)
+  - [Option B — manual](#option-b--manual)
+- [Usage workflow](#usage-workflow)
+- [API reference](#api-reference)
+- [Data contract](#data-contract)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Security \& limitations](#security--limitations)
+- [Related docs](#related-docs)
+- [License](#license)
+
+---
+
+## Why it matters
+
+Most "segmentation dashboards" are static demos with hardcoded numbers. This is a **real
+application**: every KPI, chart and customer row is derived from the dataset **you** upload,
+processed with **Apache PySpark**, persisted in **SQLite**, and served by a genuine multi-page
+**Flask + Bootstrap 5 + Chart.js** interface. No fabricated analytics.
 
 ## Features
 
 - **User-data-driven analytics** — every metric derives from the uploaded, validated dataset.
-- **File upload & preview** — CSV and XLSX, with worksheet selection, safe UUID-based storage,
-  path-traversal protection, and size/type validation.
+- **File upload & preview** — CSV and XLSX, worksheet selection, safe UUID storage,
+  path-traversal protection, size/type validation.
 - **Automatic column mapping** — synonym + type/pattern detection with conservative confidence
-  scores, an interactive correction UI, and normalization to one standard schema.
+  scores and an interactive correction UI, normalized to one standard schema.
 - **Data-quality gate (mandatory)** — structural and value checks with configurable,
-  non-destructive business rules (cancellations, returns, duplicates); blocks analysis when
+  non-destructive business rules (cancellations, returns, duplicates); blocks analysis when the
   required data is missing or unusable.
-- **PySpark processing** — hardened, shared Spark session; line totals and per-customer
-  aggregates (distinct orders, total quantity, total spend, first/last purchase date); bounded
-  collection only.
-- **Deterministic RFM** — quintile scores (Recency inverted) with tie-safe, order-independent
-  scoring anchored on an explicit reference date.
+- **PySpark processing** — hardened, shared Spark session computing per-customer aggregates
+  (distinct orders, total quantity, total spend, first/last purchase date).
+- **Deterministic RFM** — quintile scores (Recency inverted), tie-safe and order-independent,
+  anchored on an explicit reference date.
 - **Rule-based segmentation** — 8 documented, mutually exclusive segments (exactly one per
-  customer) plus an **optional**, reproducible, self-evaluating NumPy K-Means (off by default,
-  never overrides rule labels).
-- **SQLite persistence** — analyses and per-customer metrics scoped by `analysis_id`, surviving
-  restarts, with no cross-analysis contamination.
+  customer) plus an **optional**, reproducible NumPy K-Means (off by default).
 - **Analytics dashboard** — read-only KPIs, segment distribution, RFM charts and a server-side
-  customer explorer (search/filter/sort/paginate), scoped per analysis and rendered live via Chart.js.
-- **CSV/Excel export** — analysis-scoped `customers` / `segments` / `overview` datasets and a
-  full multi-sheet workbook, built from the same persisted results, formula-injection-safe.
-- **Production hardening (Phase 11)** — strict CSP + security headers, per-process rate
-  limiting on mutating endpoints, Waitress/Gunicorn WSGI servers, and a tested Docker image.
+  customer explorer (search / filter / sort / paginate), scoped per analysis.
+- **CSV / Excel export** — `customers` / `segments` / `overview` datasets and a full multi-sheet
+  workbook, built from the same persisted results, formula-injection-safe.
+- **Production hardening** — strict CSP + security headers, per-process rate limiting,
+  Waitress/Gunicorn WSGI servers, and a tested Docker image.
 
----
-
-## Technology Stack
+## Technology stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | HTML5, CSS3, Bootstrap 5, vanilla JavaScript, Chart.js, Jinja templates |
-| Backend | Python 3.13, Flask (app factory + blueprints), Flask-Cors |
-| Analytics | Pandas, NumPy |
-| Big-data | Apache PySpark 4.2.0 (on Java 21), optional K-Means via NumPy |
-| Database | SQLite (Python `sqlite3`, no ORM) |
-| Servers | Waitress (Windows) / Gunicorn (Linux/Docker) — not the Flask dev server |
-| Deployment | Docker + Docker Compose (Python 3.13 + OpenJDK 21 image) |
-| Security | Strict CSP + hardening headers, rate limiting, formula-injection-safe exports |
-| Testing | pytest, Flask test client |
+| **Frontend** | HTML5, CSS3, Bootstrap 5, vanilla JavaScript, Chart.js, Jinja templates |
+| **Backend** | Python 3.13, Flask (app factory + blueprints), Flask-Cors |
+| **Analytics** | Pandas, NumPy |
+| **Big-data** | Apache PySpark 4.2.0 (on Java 21), optional K-Means via NumPy |
+| **Database** | SQLite (Python `sqlite3`, no ORM) |
+| **Servers** | Waitress (Windows) / Gunicorn (Linux/Docker) — not the Flask dev server |
+| **Deployment** | Docker + Docker Compose (Python 3.13 + OpenJDK 21 image) |
+| **Security** | Strict CSP + hardening headers, rate limiting, formula-injection-safe exports |
+| **Testing** | pytest, Flask test client |
 
 The application is server-rendered by a single Flask process — there is no separate frontend
 server and no React/FastAPI/MySQL. `pyarrow` and `scikit-learn` are intentionally **not** used.
 
----
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph Client["Browser"]
+    UI["Jinja templates · Bootstrap 5 · Chart.js · vanilla JS"]
+  end
+
+  subgraph App["Flask app (factory + blueprints)"]
+    PAGES["Page routes"]
+    API["API routes · uploads · mappings · validation · analyses · dashboard · export"]
+    SEC["Security + rate-limit services"]
+    subgraph Services["Domain services"]
+      MAP["column mapping"]
+      DQ["data quality"]
+      SPARK["PySpark aggregation"]
+      RFM["RFM scoring"]
+      SEG["segmentation"]
+      DASH["dashboard"]
+      EXP["export"]
+    end
+    REPO["Repositories"]
+  end
+
+  subgraph Store["Persistence"]
+    DB[("SQLite")]
+    FS["filesystem · uploads / processed / exports"]
+  end
+
+  UI -->|render| PAGES
+  UI -->|fetch JSON| API
+  API --> SEC
+  API --> Services
+  Services --> REPO
+  REPO --> DB
+  Services --> FS
+```
+
+## Processing pipeline
+
+```mermaid
+flowchart LR
+  A["CSV / XLSX upload"] --> B["File validation"]
+  B --> C["Column auto-mapping"]
+  C --> D{"Data-quality gate"}
+  D -->|fails| X["Blocked · fix & re-run"]
+  X --> C
+  D -->|passes| E["PySpark aggregation"]
+  E --> F["RFM scoring"]
+  F --> G["Rule-based segmentation"]
+  G --> H["Dashboard & charts"]
+  H --> I["CSV / XLSX export"]
+```
 
 ## Prerequisites
 
 - **Python 3.13**
 - **Java 21 (LTS)** — required by PySpark
 - A modern browser
-- OS: developed and verified locally on **Windows 11**
-
-Verify your runtimes:
 
 ```powershell
 python --version    # 3.13.x
 java -version       # 21.x
 ```
 
----
+## Quick start
 
-## Quick Start
+### Option A — one-click (Windows)
+
+Double-click **`start.bat`** in the repository root (or run it from a terminal). It verifies
+Python, installs dependencies into a virtual environment if needed, launches the app and opens
+your browser at **http://127.0.0.1:5000**.
+
+```powershell
+start.bat          # development server (Flask, auto-reload)
+start.bat prod     # production server (Waitress)
+```
+
+### Option B — manual
 
 ```powershell
 # 1. Install dependencies
@@ -96,9 +187,9 @@ python run.py
 Open **http://127.0.0.1:5000** in your browser. The SQLite database and `storage/` directories
 are created automatically on first run.
 
-> `run.py` starts Flask's **development** server (debug/reloader) — fine locally. For
-> production use **Waitress** (`python backend/serve.py`) on Windows, **Gunicorn**
-> (`wsgi:app`) on Linux, or **Docker Compose**. See [DEPLOYMENT.md](DEPLOYMENT.md).
+> `run.py` starts Flask's **development** server (debug/reloader) — fine locally. For production
+> use **Waitress** (`python backend/serve.py`) on Windows, **Gunicorn** (`wsgi:app`) on Linux, or
+> **Docker Compose**. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 Optional environment overrides (see `backend/.env.example`):
 
@@ -113,28 +204,23 @@ Optional environment overrides (see `backend/.env.example`):
 | `SEGMENTATION_ENABLE_KMEANS` | `0` | Enable optional K-Means (`1` to turn on) |
 | `KMEANS_RANDOM_SEED` / `KMEANS_MAX_K` / `KMEANS_MIN_CUSTOMERS` | `42` / `5` / `10` | K-Means settings |
 
----
-
-## Usage Workflow
+## Usage workflow
 
 1. **Upload Data** — upload a CSV or XLSX transaction file (or use `sample_data/sample_retail.csv`).
-2. **Preview & Map** — review the detected columns and confirm/correct the mapping to the
-   standard schema.
-3. **Data Quality** — review the validation report; apply business rules; the dataset becomes
+2. **Preview & Map** — review the detected columns and confirm/correct the mapping.
+3. **Data Quality** — review the validation report and apply business rules; the dataset becomes
    `ready_for_analysis` only when it passes.
 4. **Aggregate** — run the PySpark pipeline to compute per-customer aggregates.
-5. **RFM** — compute deterministic Recency/Frequency/Monetary scores.
+5. **RFM** — compute deterministic Recency / Frequency / Monetary scores.
 6. **Segment** — assign rule-based segments (and optional K-Means clusters).
-7. **Dashboard / Segments / Customers** — interactive KPIs, charts, and a server-side customer
+7. **Dashboard / Segments / Customers** — interactive KPIs, charts and a server-side customer
    explorer, all scoped to the selected analysis.
 8. **Export** — download the analysis as CSV, or a full multi-sheet XLSX workbook.
 
-A sample run on `sample_retail.csv` yields **11 customers**, 15 distinct orders, and 6 distinct
+A sample run on `sample_retail.csv` yields **11 customers**, 15 distinct orders and 6 distinct
 segments, with the K-Means evaluator self-selecting `k=4` when enabled.
 
----
-
-## API Reference
+## API reference
 
 All API responses are JSON (`{"success": ..., "message": ..., "details": ...}` on error).
 
@@ -158,19 +244,17 @@ All API responses are JSON (`{"success": ..., "message": ..., "details": ...}` o
 | POST | `/api/analyses/<id>/segment` | Assign segments (+ optional clusters) |
 | GET | `/api/analyses/<id>/metrics` | Per-customer metrics |
 | GET | `/api/analyses` | List analyses (newest first, with source + status) |
-| GET | `/api/analyses/<id>/dashboard` | Read-only dashboard payload (KPIs, distributions) |
+| GET | `/api/analyses/<id>/dashboard` | Read-only dashboard payload |
 | GET | `/api/analyses/<id>/customers` | Server-side search/filter/sort/paginate |
 | GET | `/api/analyses/<id>/export` | CSV/XLSX export (`?format=csv|xlsx&dataset=...`) |
 
 **Mutating endpoints are rate-limited** (POST `/api/uploads`, `/mapping`, `/validate`,
 `/aggregate`, `/rfm`, `/segment`) — see [DEPLOYMENT.md](DEPLOYMENT.md).
 
-Page routes: `/` (home), `/upload`, `/mapping`, `/validation`, `/dashboard`, `/segments`,
-`/customers`, `/history`, `/settings`.
+**Page routes:** `/` · `/upload` · `/mapping` · `/validation` · `/dashboard` · `/segments` ·
+`/customers` · `/history` · `/settings`.
 
----
-
-## Data Contract
+## Data contract
 
 Uploaded files are normalized to a standard schema:
 
@@ -189,8 +273,6 @@ Uploaded files are normalized to a standard schema:
 Monetary value is computed as `line_total = quantity × unit_price`. Frequency counts **distinct
 orders**, not line items.
 
----
-
 ## Testing
 
 From the `backend/` directory:
@@ -199,10 +281,10 @@ From the `backend/` directory:
 python -m pytest
 ```
 
-Current result: **233 passed, 1 pre-existing warning**. Each test runs against an isolated
-SQLite DB and storage directory. The suite covers file handling, column mapping, validation,
-database persistence and restart survival, PySpark aggregation, RFM scoring, segmentation
-(rules + K-Means), the dashboard, exports, and the Phase 11 security/CSP/rate-limit behavior.
+Current result: **233 passed, 1 pre-existing warning**. Each test runs against an isolated SQLite
+DB and storage directory. The suite covers file handling, column mapping, validation, database
+persistence and restart survival, PySpark aggregation, RFM scoring, segmentation (rules +
+K-Means), the dashboard, exports, and the Phase 11 security/CSP/rate-limit behavior.
 
 Persistence restart check:
 
@@ -211,27 +293,38 @@ python restart_check.py write
 python restart_check.py read
 ```
 
----
+## Deployment
 
-## Security & Limitations
+Production images and servers are covered in **[DEPLOYMENT.md](DEPLOYMENT.md)**:
+
+```powershell
+docker compose up --build       # Python 3.13 + OpenJDK 21 image, Waitress/Gunicorn
+```
+
+## Security & limitations
 
 - **Local single-user MVP:** there is **no authentication or multi-tenancy**. Do not expose this
-  MVP publicly — uploads, results, and history are not user-isolated. A multi-user deployment
-  would require authentication and server-side ownership checks first.
-- Upload size limit (default 100 MB), safe filenames, path-traversal protection, and
+  MVP publicly — uploads, results and history are not user-isolated.
+- Upload size limit (default 100 MB), safe filenames, path-traversal protection and
   parameterized SQL are enforced.
-- Internal errors are returned as clean messages/HTML pages — no stack traces, filesystem paths,
-  or credentials are exposed to clients.
+- Internal errors return clean messages/HTML pages — no stack traces, filesystem paths or
+  credentials are exposed to clients.
 - PySpark runs locally; this project does **not** claim distributed, cluster-scale performance.
 - **Phase 11 hardening is in place:** strict CSP + security headers, per-process rate limiting,
   production WSGI servers, and a tested Docker image. The in-memory rate limiter is
   **process-local** (resets on restart, not shared between workers); the `Server` header is
   suppressed on Waitress but **not** on Gunicorn (strip it at a trusted reverse proxy).
-- It is still a single-user MVP: **authn/authz and multi-tenant isolation remain prerequisites**
-  before any public deployment. See [DEPLOYMENT.md](DEPLOYMENT.md).
+- **Authn/authz and multi-tenant isolation remain prerequisites** before any public deployment.
 
----
+## Related docs
+
+| Document | Contents |
+|---|---|
+| [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) | Full specification & design |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Module & layer breakdown |
+| [TASKS.md](TASKS.md) | Phase-by-phase tracker |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Operations & deployment guide |
 
 ## License
 
-See [LICENSE](LICENSE).
+Distributed under the **MIT License** — see [LICENSE](LICENSE).
