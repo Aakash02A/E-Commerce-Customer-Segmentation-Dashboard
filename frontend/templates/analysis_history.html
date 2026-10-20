@@ -19,33 +19,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-const STATUS_BADGE = {
-  uploaded: "secondary", mapping_required: "info", mapped: "info",
-  validation_failed: "danger", ready_for_analysis: "success", failed: "danger",
-};
-(async function () {
-  const tbody = document.getElementById("history-rows");
-  try {
-    const res = await api("/api/uploads");
-    const items = res.data.uploads;
-    if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-secondary p-4 text-center">No datasets uploaded yet.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = items.map((u) => {
-      const badge = STATUS_BADGE[u.status] || "secondary";
-      return `<tr>
-        <td class="fw-semibold">${escapeHtml(u.original_filename)}</td>
-        <td class="text-uppercase"><small>${escapeHtml(u.extension)}</small></td>
-        <td><span class="badge text-bg-${badge}">${escapeHtml(u.status.replace(/_/g, " "))}</span></td>
-        <td><small class="text-secondary">${escapeHtml(u.created_at)}</small></td>
-        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/upload" title="Resume this dataset">Open</a></td>
-      </tr>`;
-    }).join("");
-  } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-danger p-4 text-center">${escapeHtml(e.message)}</td></tr>`;
-  }
-})();
-</script>
+<script src="{{ url_for('static', filename='js/history.js') }}"></script>
 {% endblock %}

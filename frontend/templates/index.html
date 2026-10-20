@@ -69,24 +69,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-(async function loadHome() {
-  try {
-    await api("/api/health");
-    document.getElementById("stat-backend").textContent = "Online";
-  } catch (e) {
-    const el = document.getElementById("stat-backend");
-    el.textContent = "Offline";
-    el.classList.replace("text-success", "text-danger");
-  }
-  try {
-    const res = await api("/api/uploads/summary");
-    document.getElementById("stat-analyses").textContent = formatNumber(res.data.total_uploads);
-    document.getElementById("stat-ready").textContent = formatNumber(res.data.ready_for_analysis);
-  } catch (e) {
-    document.getElementById("stat-analyses").textContent = "0";
-    document.getElementById("stat-ready").textContent = "0";
-  }
-})();
-</script>
+<script src="{{ url_for('static', filename='js/home.js') }}"></script>
 {% endblock %}
