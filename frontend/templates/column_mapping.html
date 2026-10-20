@@ -4,8 +4,8 @@
 {% set active_step = 'mapping' %}
 {% include "_steps.html" %}
 
-<h1 class="page-title h3 mb-1">Confirm Column Mapping</h1>
-<p class="text-secondary">We auto-detected these mappings. Correct anything uncertain before continuing. Required fields are marked <span class="badge text-bg-danger">required</span>.</p>
+<h1 class="page-title mb-1">Confirm Column Mapping</h1>
+<p class="page-subtitle mb-4">We auto-detected these mappings. Correct anything uncertain before continuing. Required fields are marked <span class="pill pill-danger">required</span>.</p>
 
 <div id="mapping-empty" class="empty-state d-none">
   <i class="bi bi-diagram-3"></i>
@@ -18,16 +18,16 @@
   <div class="alert alert-info py-2" id="mapping-hint">
     <i class="bi bi-info-circle"></i> Columns marked <span class="badge confidence-badge-0">low</span> or <span class="badge confidence-badge-1">medium</span> confidence should be reviewed.
   </div>
-  <div class="card">
+  <div class="table-wrap">
     <div class="table-responsive">
       <table class="table align-middle mb-0">
-        <thead class="table-light">
+        <thead>
           <tr>
-            <th style="min-width:160px">Uploaded Column</th>
-            <th style="min-width:90px">Detected Type</th>
-            <th>Sample Values</th>
-            <th style="min-width:110px">Confidence</th>
-            <th style="min-width:220px">Standard Field</th>
+            <th style="min-width:160px" scope="col">Uploaded Column</th>
+            <th style="min-width:90px" scope="col">Detected Type</th>
+            <th scope="col">Sample Values</th>
+            <th style="min-width:110px" scope="col">Confidence</th>
+            <th style="min-width:220px" scope="col">Standard Field</th>
           </tr>
         </thead>
         <tbody id="mapping-rows"></tbody>

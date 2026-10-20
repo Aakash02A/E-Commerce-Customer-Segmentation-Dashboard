@@ -52,9 +52,9 @@
   });
 
   function card(label, value, color) {
-    return `<div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body text-center">
-      <div class="kpi-value" style="color:${color}">${value}</div>
-      <div class="kpi-label">${label}</div></div></div></div>`;
+    return `<div class="card kpi-card">
+      <div class="kpi-label">${label}</div>
+      <div class="kpi-value" style="color:${color}">${value}</div></div>`;
   }
 
   function renderReport(report) {

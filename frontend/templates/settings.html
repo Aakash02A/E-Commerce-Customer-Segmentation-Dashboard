@@ -1,27 +1,34 @@
 {% extends "base.html" %}
 {% block title %}Settings / About{% endblock %}
 {% block content %}
-<h1 class="page-title h3 mb-3">Settings &amp; About</h1>
-<div class="row g-3">
+
+<div class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Settings &amp; About</h1>
+    <p class="page-subtitle">How this workspace is built and how a dataset flows through the pipeline.</p>
+  </div>
+</div>
+
+<div class="row g-4">
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-body">
-        <h5 class="card-title h6"><i class="bi bi-info-circle"></i> About</h5>
-        <p class="mb-2">A data-driven <strong>E-Commerce Customer Segmentation &amp; Analytics Dashboard</strong>. Upload your own transaction dataset, map columns to a standard schema, validate data quality, and (in later phases) run RFM segmentation with PySpark.</p>
-        <p class="text-secondary small mb-0">This MVP is a <strong>local, single-user</strong> application. It is not yet a multi-tenant production service and does not include authentication.</p>
+        <h2 class="section-title"><i class="bi bi-info-circle"></i> About</h2>
+        <p class="mb-2">A data-driven <strong>E-Commerce Customer Segmentation &amp; Analytics Dashboard</strong>. Upload your own transaction dataset, map columns to a standard schema, validate data quality, and run RFM segmentation with PySpark.</p>
+        <p class="text-secondary small mb-0">This is a <strong>local, single-user</strong> application. It is not a multi-tenant production service and does not include authentication.</p>
       </div>
     </div>
   </div>
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-body">
-        <h5 class="card-title h6"><i class="bi bi-diagram-2"></i> Data Pipeline</h5>
-        <ol class="mb-0 text-secondary small" style="line-height:1.9">
-          <li>Upload → File Validation</li>
-          <li>Column Detection → Mandatory Column Mapping → User Confirmation</li>
-          <li>Data Quality Validation → Schema Normalization</li>
-          <li><em>PySpark Processing → RFM Analysis → Optional Clustering</em> (Phase 6–10)</li>
-          <li>Dashboard → Export</li>
+        <h2 class="section-title"><i class="bi bi-diagram-2"></i> Data Pipeline</h2>
+        <ol class="mb-0 text-secondary" style="line-height:2">
+          <li>Upload &rarr; File Validation</li>
+          <li>Column Detection &rarr; Mandatory Column Mapping &rarr; User Confirmation</li>
+          <li>Data Quality Validation &rarr; Schema Normalization</li>
+          <li>PySpark Processing &rarr; RFM Analysis &rarr; Segmentation</li>
+          <li>Dashboard &rarr; Export</li>
         </ol>
       </div>
     </div>
@@ -29,10 +36,10 @@
   <div class="col-12">
     <div class="card">
       <div class="card-body">
-        <h5 class="card-title h6"><i class="bi bi-cpu"></i> Technology Stack</h5>
+        <h2 class="section-title"><i class="bi bi-cpu"></i> Technology Stack</h2>
         <div class="d-flex flex-wrap gap-2">
           {% for t in ['HTML5','CSS3','Bootstrap 5','Vanilla JavaScript','Chart.js','Python','Flask','Pandas','NumPy','Apache Spark / PySpark','SQLite'] %}
-            <span class="badge text-bg-light border">{{ t }}</span>
+            <span class="pill pill-neutral">{{ t }}</span>
           {% endfor %}
         </div>
       </div>

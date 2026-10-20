@@ -49,12 +49,12 @@
   }
 
   function kpiCard(label, value, icon, color) {
-    return `<div class="col-6 col-lg-4 col-xl-2"><div class="card h-100"><div class="card-body">
-      <div class="d-flex justify-content-between align-items-start">
+    return `<div class="card kpi-card">
+      <div class="kpi-top">
         <div class="kpi-label">${label}</div>
-        <div class="kpi-icon" style="background:${color}22;color:${color}"><i class="bi ${icon}"></i></div>
+        <div class="kpi-icon" style="background:${color}1a;color:${color}"><i class="bi ${icon}"></i></div>
       </div>
-      <div class="kpi-value mt-2">${value}</div></div></div></div>`;
+      <div class="kpi-value">${value}</div></div>`;
   }
 
   // Show "-" for genuinely unavailable (null) values, distinct from a real 0.
@@ -63,12 +63,12 @@
 
   function renderAnalysis(info) {
     document.getElementById("info-id").innerHTML =
-      `<small class="sample-values">${escapeHtml(info.analysis_id)}</small>`;
+      `<span class="sample-values">${escapeHtml(info.analysis_id)}</span>`;
     document.getElementById("info-source").textContent = info.source_name || "-";
     document.getElementById("info-source").title = info.source_name || "";
-    const badge = { completed: "success", running: "info", pending: "secondary", failed: "danger" }[info.status] || "secondary";
+    const pill = { completed: "success", running: "info", pending: "neutral", failed: "danger" }[info.status] || "neutral";
     document.getElementById("info-status").innerHTML =
-      `<span class="badge text-bg-${badge}">${escapeHtml(info.status.replace(/_/g, " "))}</span>`;
+      `<span class="pill pill-${pill}">${escapeHtml(info.status.replace(/_/g, " "))}</span>`;
     document.getElementById("info-ref").textContent = info.reference_date || "-";
     document.getElementById("link-segments").href = "/segments?analysis=" + encodeURIComponent(info.analysis_id);
     document.getElementById("link-customers").href = "/customers?analysis=" + encodeURIComponent(info.analysis_id);
@@ -138,8 +138,8 @@
     chartEmpty.classList.add("d-none");
     Charts.doughnut("seg-chart", "seg", sb.segments.map((s) => s.segment), sb.segments.map((s) => s.count));
     tbody.innerHTML = sb.segments.map((s) =>
-      `<tr><td class="fw-semibold">${escapeHtml(s.segment)}</td>
-        <td class="text-end">${formatNumber(s.count)}</td>
+      `<tr><td><span class="seg-badge" data-segment="${escapeHtml(s.segment)}">${escapeHtml(s.segment)}</span></td>
+        <td class="text-end fw-semibold">${formatNumber(s.count)}</td>
         <td class="text-end">${s.percentage}%</td>
         <td><small class="text-secondary">${escapeHtml(s.description)}</small></td></tr>`).join("");
   }
@@ -172,10 +172,13 @@
       const s = rfm.summaries[key] || {};
       const value = s.available ? num(s.avg, digits) : "-";
       const sub = s.available ? `range ${num(s.min, digits)}–${num(s.max, digits)}` : "not available";
-      return `<div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body">
-        <div class="kpi-label">${label}</div>
-        <div class="kpi-value" style="font-size:1.5rem;color:${color}">${value}</div>
-        <div class="small text-secondary">${escapeHtml(sub)}</div></div></div></div>`;
+      return `<div class="card kpi-card">
+        <div class="kpi-top">
+          <div class="kpi-label">${label}</div>
+          <div class="kpi-icon" style="background:${color}1a;color:${color}"><i class="bi ${icon}"></i></div>
+        </div>
+        <div class="kpi-value">${value}</div>
+        <div class="kpi-sub">${escapeHtml(sub)}</div></div>`;
     }).join("");
   }
 

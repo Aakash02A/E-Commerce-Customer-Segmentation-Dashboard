@@ -1,19 +1,85 @@
 {% extends "base.html" %}
-{% block title %}Dataset History{% endblock %}
+{% block title %}Analysis History{% endblock %}
 {% block content %}
-{% set active_step = 'dashboard' %}
-{% include "_steps.html" %}
-<h1 class="page-title h3 mb-1">Dataset History</h1>
-<p class="text-secondary">Previously uploaded datasets and their current workflow status. Open the Dashboard to explore completed analyses.</p>
 
-<div class="card">
-  <div class="table-responsive">
-    <table class="table align-middle mb-0">
-      <thead class="table-light">
-        <tr><th>Dataset</th><th>Type</th><th>Status</th><th>Uploaded</th><th></th></tr>
-      </thead>
-      <tbody id="history-rows"><tr><td colspan="5" class="text-secondary p-4 text-center">Loading…</td></tr></tbody>
-    </table>
+<div class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Analysis History</h1>
+    <p class="page-subtitle">Your analysis library — reopen any completed run or export its results.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-primary btn-sm" href="{{ url_for('pages.upload') }}"><i class="bi bi-plus-lg"></i> New Analysis</a>
+  </div>
+</div>
+
+<!-- Summary metadata (populated by JS) -->
+<p class="history-meta mb-3" id="history-meta"></p>
+
+<!-- Loading state -->
+<div id="history-loading" class="loading-indicator d-none">
+  <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+  <span>Loading analyses…</span>
+</div>
+
+<!-- Error state -->
+<div id="history-error" class="alert alert-danger d-none" role="alert"></div>
+
+<!-- Empty state -->
+<div id="history-empty" class="empty-state d-none">
+  <i class="bi bi-clock-history"></i>
+  <h4>No analyses yet</h4>
+  <p>Upload your e-commerce dataset to generate customer segments and explore your analytics.</p>
+  <a class="btn btn-primary" href="{{ url_for('pages.upload') }}"><i class="bi bi-upload"></i> Start an Analysis</a>
+</div>
+
+<!-- Main content -->
+<div id="history-content" class="d-none">
+
+  <!-- Filter bar -->
+  <div class="card mb-4">
+    <div class="card-body filter-bar">
+      <div class="flex-grow-1" style="max-width:340px">
+        <label class="form-label" for="history-search">Search</label>
+        <input id="history-search" class="form-control form-control-sm" type="search" placeholder="By dataset or analysis name…" />
+      </div>
+      <div style="min-width:170px">
+        <label class="form-label" for="history-status">Status</label>
+        <select id="history-status" class="form-select form-select-sm">
+          <option value="">All statuses</option>
+          <option value="completed">Completed</option>
+          <option value="running">Running</option>
+          <option value="pending">Pending</option>
+          <option value="failed">Failed</option>
+        </select>
+      </div>
+      <div class="ms-auto align-self-end">
+        <button class="btn btn-sm btn-outline-secondary" id="history-reset" type="button"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" aria-label="Analysis history">
+        <thead>
+          <tr>
+            <th class="sortable" data-col="source_name" scope="col">Dataset</th>
+            <th class="sortable" data-col="reference_date" scope="col">Reference Date</th>
+            <th class="sortable text-end" data-col="customers_analyzed" scope="col">Customers</th>
+            <th class="sortable" data-col="status" scope="col">Status</th>
+            <th class="sortable" data-col="created_at" scope="col">Created</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="history-rows">
+          <tr><td colspan="6" class="text-secondary p-4 text-center">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <small id="history-count"></small>
+    </div>
   </div>
 </div>
 {% endblock %}

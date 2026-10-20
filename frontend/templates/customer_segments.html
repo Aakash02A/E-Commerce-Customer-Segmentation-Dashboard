@@ -1,39 +1,83 @@
 {% extends "base.html" %}
-{% block title %}Customer Segments{% endblock %}
+{% block title %}Customer Segmentation{% endblock %}
 {% block content %}
-{% set active_step = 'dashboard' %}
-{% include "_steps.html" %}
 
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
-  <h1 class="page-title h3 mb-0">Customer Segments</h1>
-  <div class="d-flex align-items-center gap-2">
-    <label class="form-label mb-0 text-secondary small" for="analysis-select">Analysis</label>
-    <select id="analysis-select" class="form-select form-select-sm" style="min-width: 260px" aria-label="Select analysis"></select>
+<div class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Customer Segmentation</h1>
+    <p class="page-subtitle">Understand customer behavior through RFM scoring — each scored customer is assigned exactly one segment.</p>
+  </div>
+  <div class="page-actions">
+    <label class="form-label mb-0 small text-secondary" for="analysis-select">Analysis</label>
+    <select id="analysis-select" class="form-select form-select-sm" aria-label="Select analysis"></select>
   </div>
 </div>
-<p class="text-secondary">Rule-based RFM segments for the selected analysis. Percentages are of the segmented population. Click a segment to explore its customers.</p>
 
+<!-- Loading state -->
+<div id="seg-loading" class="loading-indicator d-none">
+  <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+  <span>Loading segmentation results…</span>
+</div>
+
+<!-- Error state -->
+<div id="seg-error" class="alert alert-danger d-none" role="alert"></div>
+
+<!-- Empty state: no analyses -->
 <div id="seg-empty" class="empty-state d-none">
   <i class="bi bi-people"></i>
   <h4>No segments available</h4>
-  <p class="mb-3">Complete aggregation, RFM scoring and segmentation to see customer segments.</p>
-  <a class="btn btn-primary" href="{{ url_for('pages.dashboard') }}">Go to Dashboard</a>
+  <p>Complete aggregation, RFM scoring, and segmentation to see customer segments here.</p>
+  <a class="btn btn-primary" href="{{ url_for('pages.upload') }}"><i class="bi bi-upload"></i> Start an Analysis</a>
 </div>
-<div id="seg-error" class="alert alert-danger d-none"></div>
 
+<!-- Main content -->
 <div id="seg-content" class="d-none">
-  <div class="row g-3 mb-4">
-    <div class="col-lg-6"><div class="card h-100"><div class="card-body">
-      <h2 class="card-title h6">Segment Distribution</h2>
-      <div style="height:320px"><canvas id="seg-chart"></canvas></div>
-    </div></div></div>
-    <div class="col-lg-6"><div class="card h-100"><div class="card-body">
-      <h2 class="card-title h6">Overview</h2>
-      <div id="seg-summary" class="mb-3"></div>
-      <p class="small text-secondary mb-0">Segments are assigned by documented, mutually exclusive RFM rules — exactly one segment per scored customer.</p>
-    </div></div></div>
+
+  <!-- Analysis context banner -->
+  <div class="analysis-banner" id="seg-banner">
+    <div class="banner-meta" id="seg-banner-meta"></div>
+    <div class="ms-auto d-flex gap-2">
+      <a class="btn btn-sm btn-outline-primary" id="btn-export-xlsx" href="#"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+      <a class="btn btn-sm btn-outline-secondary" id="btn-export-csv" href="#"><i class="bi bi-filetype-csv"></i> CSV</a>
+    </div>
   </div>
-  <div class="row g-3" id="seg-cards"></div>
+
+  <!-- KPI cards -->
+  <div class="kpi-grid mb-4" id="seg-kpis"></div>
+
+  <!-- Segment distribution: donut + legend -->
+  <div class="row g-4 mb-4">
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="section-title"><i class="bi bi-pie-chart"></i> Segment Distribution</h2>
+          <div class="chart-container chart-container--donut">
+            <canvas id="seg-chart" role="img" aria-label="Doughnut chart showing customer share per segment"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="section-title"><i class="bi bi-list-ul"></i> Segments by Size</h2>
+          <div class="seg-legend" id="seg-legend" role="list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Segment explanation -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="section-title"><i class="bi bi-info-circle"></i> How Segments Are Assigned</h2>
+      <p class="text-secondary mb-0">Segments are assigned by documented, mutually exclusive RFM rules — exactly one segment per scored customer. Recency measures days since last purchase, Frequency counts distinct orders, and Monetary sums total spend. Select any segment to explore its customers.</p>
+    </div>
+  </div>
+
+  <!-- Segment cards -->
+  <h2 class="section-title"><i class="bi bi-grid-3x3-gap"></i> Segment Explorer</h2>
+  <div class="kpi-grid" id="seg-cards" role="list"></div>
 </div>
 {% endblock %}
 

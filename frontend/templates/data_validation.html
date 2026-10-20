@@ -4,8 +4,8 @@
 {% set active_step = 'validation' %}
 {% include "_steps.html" %}
 
-<h1 class="page-title h3 mb-1">Data Quality Report</h1>
-<p class="text-secondary">Validation runs before analysis is enabled. Required-field problems and unusable data block the pipeline.</p>
+<h1 class="page-title mb-1">Data Quality Report</h1>
+<p class="page-subtitle mb-4">Validation runs before analysis is enabled. Required-field problems and unusable data block the pipeline.</p>
 
 <div id="val-empty" class="empty-state d-none">
   <i class="bi bi-shield-check"></i>
@@ -46,17 +46,19 @@
   </div>
 
   <div id="report-wrap" class="d-none">
-    <div class="row g-3 mb-3" id="report-cards"></div>
+    <div class="kpi-grid mb-4" id="report-cards"></div>
     <div class="alert" id="report-status"></div>
 
-    <div class="card mb-3">
+    <div class="card mb-4">
       <div class="card-body">
-        <h5 class="card-title h6">Checks &amp; Findings</h5>
-        <div class="table-responsive">
-          <table class="table table-sm mb-0">
-            <thead class="table-light"><tr><th>Issue</th><th>Detail</th><th class="text-end">Rows</th></tr></thead>
-            <tbody id="report-checks"></tbody>
-          </table>
+        <h2 class="section-title"><i class="bi bi-clipboard-check"></i> Checks &amp; Findings</h2>
+        <div class="table-wrap">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead><tr><th scope="col">Issue</th><th scope="col">Detail</th><th class="text-end" scope="col">Rows</th></tr></thead>
+              <tbody id="report-checks"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

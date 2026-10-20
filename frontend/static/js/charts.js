@@ -5,6 +5,20 @@ const Charts = (function () {
     "#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed",
     "#0891b2", "#db2777", "#65a30d", "#ea580c", "#475569",
   ];
+
+  // Centralized segment color map (consistent across the app).
+  const SEGMENT_COLORS = {
+    "Champions": "#2563eb",
+    "Loyal Customers": "#16a34a",
+    "Recent Customers": "#0891b2",
+    "Potential Loyalists": "#7c3aed",
+    "At Risk": "#f59e0b",
+    "Cannot Lose Them": "#dc2626",
+    "Hibernating": "#64748b",
+    "Others": "#94a3b8",
+  };
+  function segmentColor(name) { return SEGMENT_COLORS[name] || "#94a3b8"; }
+
   const registry = {};
 
   function destroy(key) {
@@ -31,9 +45,10 @@ const Charts = (function () {
         labels,
         datasets: [{
           data: values,
-          backgroundColor: labels.map((_, i) => PALETTE[i % PALETTE.length]),
+          backgroundColor: labels.map((l) => segmentColor(l)),
           borderColor: "#fff",
           borderWidth: 2,
+          hoverOffset: 6,
         }],
       },
       options: {
@@ -88,5 +103,47 @@ const Charts = (function () {
     return registry[key];
   }
 
-  return { defaults, doughnut, scoreBar, destroy, PALETTE };
+  // labels/values -> horizontal bar (segment distribution).
+  function hBar(canvasId, key, labels, values) {
+    destroy(key);
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return null;
+    registry[key] = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "Customers",
+          data: values,
+          backgroundColor: labels.map((l) => segmentColor(l)),
+          borderRadius: 6,
+          barPercentage: 0.7,
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (c) => {
+                const total = c.dataset.data.reduce((a, b) => a + b, 0) || 1;
+                const pct = ((c.raw / total) * 100).toFixed(1);
+                return ` ${c.raw} customers (${pct}%)`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: "Customers" } },
+          y: { grid: { display: false } },
+        },
+      },
+    });
+    return registry[key];
+  }
+
+  return { defaults, doughnut, hBar, scoreBar, destroy, PALETTE, segmentColor, SEGMENT_COLORS };
 })();

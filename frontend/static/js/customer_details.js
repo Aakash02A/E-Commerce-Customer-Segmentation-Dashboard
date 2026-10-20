@@ -7,10 +7,12 @@
   const pageSizeSel = document.getElementById("page-size");
   const rowsEl = document.getElementById("cust-rows");
   const countEl = document.getElementById("cust-count");
+  const footerEl = document.getElementById("cust-footer-info");
   const pagerEl = document.getElementById("cust-pager");
   const emptyEl = document.getElementById("cust-empty");
   const errorEl = document.getElementById("cust-error");
   const contentEl = document.getElementById("cust-content");
+  const exportEl = document.getElementById("cust-export");
 
   const state = {
     analysisId: null,
@@ -42,6 +44,7 @@
     catch (e) { showError(e.message); return; }
     countEl.textContent = `${formatNumber(d.total)} customer${d.total === 1 ? "" : "s"}` +
       (state.segment ? ` in "${state.segment}"` : "") + (state.search ? ` matching "${state.search}"` : "");
+    footerEl.textContent = `Page ${d.page} of ${d.pages} · ${d.total} total`;
     if (!d.items.length) {
       rowsEl.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-4">No customers match these filters.</td></tr>';
       pagerEl.innerHTML = "";
@@ -54,7 +57,7 @@
       <td class="text-end">${fmt(c.frequency)}</td>
       <td class="text-end">${fmt(c.monetary, true, 2)}</td>
       <td class="text-center"><small class="sample-values">${fmt(c.r_score)}/${fmt(c.f_score)}/${fmt(c.m_score)}</small></td>
-      <td>${c.segment ? `<span class="badge text-bg-light text-dark border">${escapeHtml(c.segment)}</span>` : '<span class="text-secondary">-</span>'}</td>
+      <td>${c.segment ? `<span class="seg-badge" data-segment="${escapeHtml(c.segment)}">${escapeHtml(c.segment)}</span>` : '<span class="text-secondary">-</span>'}</td>
     </tr>`).join("");
     renderPager(d.page, d.pages);
   }
@@ -140,6 +143,7 @@
     Session.setAnalysisId(id);
     state.page = 1;
     state.segment = params.get("segment") || "";
+    exportEl.href = `/api/analyses/${id}/export?format=csv&dataset=customers`;
     await populateSegments();
     await loadTable();
   }

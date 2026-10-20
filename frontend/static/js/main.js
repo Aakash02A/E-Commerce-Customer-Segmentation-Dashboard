@@ -1,15 +1,26 @@
 // Shared helpers: sidebar toggle, API wrapper, active-session storage.
 
-// Mobile sidebar toggle button, injected once.
+// Sidebar toggle + overlay (button is in base.html template).
 (function initSidebarToggle() {
   document.addEventListener("DOMContentLoaded", () => {
-    const btn = document.createElement("button");
-    btn.className = "sidebar-toggle";
-    btn.innerHTML = '<i class="bi bi-list"></i>';
-    btn.addEventListener("click", () =>
-      document.querySelector(".sidebar").classList.toggle("show")
-    );
-    document.body.appendChild(btn);
+    const btn = document.querySelector(".sidebar-toggle");
+    const sidebar = document.querySelector(".sidebar");
+    const overlay = document.querySelector(".sidebar-overlay");
+    if (!btn || !sidebar) return;
+
+    function close() {
+      sidebar.classList.remove("show");
+      if (overlay) overlay.classList.remove("show");
+    }
+    btn.addEventListener("click", () => {
+      const open = sidebar.classList.toggle("show");
+      if (overlay) overlay.classList.toggle("show", open);
+    });
+    if (overlay) overlay.addEventListener("click", close);
+    // Close on Escape
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && sidebar.classList.contains("show")) close();
+    });
   });
 })();
 

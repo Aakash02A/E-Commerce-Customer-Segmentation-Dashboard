@@ -1,80 +1,83 @@
 {% extends "base.html" %}
 {% block title %}Customer Details{% endblock %}
 {% block content %}
-{% set active_step = 'dashboard' %}
-{% include "_steps.html" %}
 
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
-  <h1 class="page-title h3 mb-0">Customer Details</h1>
-  <div class="d-flex align-items-center gap-2">
-    <label class="form-label mb-0 text-secondary small" for="analysis-select">Analysis</label>
-    <select id="analysis-select" class="form-select form-select-sm" style="min-width: 240px" aria-label="Select analysis"></select>
+<div class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Customer Details</h1>
+    <p class="page-subtitle">Per-customer RFM metrics and segment assignments with server-side filtering, sorting, and pagination.</p>
+  </div>
+  <div class="page-actions">
+    <label class="form-label mb-0 small text-secondary" for="analysis-select">Analysis</label>
+    <select id="analysis-select" class="form-select form-select-sm" aria-label="Select analysis"></select>
   </div>
 </div>
-<p class="text-secondary">Per-customer RFM metrics and segments. Results are filtered, sorted and paginated on the server — the whole customer set is never loaded at once.</p>
 
+<!-- Empty state -->
 <div id="cust-empty" class="empty-state d-none">
   <i class="bi bi-person-badge"></i>
   <h4>No customers available</h4>
-  <p class="mb-3">Run the analysis pipeline to generate customer-level metrics.</p>
-  <a class="btn btn-primary" href="{{ url_for('pages.dashboard') }}">Go to Dashboard</a>
+  <p>Run the analysis pipeline to generate customer-level metrics.</p>
+  <a class="btn btn-primary" href="{{ url_for('pages.upload') }}"><i class="bi bi-upload"></i> Start an Analysis</a>
 </div>
-<div id="cust-error" class="alert alert-danger d-none"></div>
 
+<!-- Error state -->
+<div id="cust-error" class="alert alert-danger d-none" role="alert"></div>
+
+<!-- Main content -->
 <div id="cust-content" class="d-none">
-  <div class="card mb-3"><div class="card-body">
-    <div class="row g-2 align-items-end">
-      <div class="col-md-4">
-        <label class="form-label small mb-1" for="search">Search customer ID</label>
+
+  <!-- Filter controls -->
+  <div class="card mb-4">
+    <div class="card-body filter-bar">
+      <div class="flex-grow-1" style="max-width:280px">
+        <label class="form-label" for="search">Search Customer ID</label>
         <input id="search" class="form-control form-control-sm" type="search" placeholder="e.g. 17850" />
       </div>
-      <div class="col-md-3">
-        <label class="form-label small mb-1" for="segment-filter">Segment</label>
+      <div style="min-width:170px">
+        <label class="form-label" for="segment-filter">Segment</label>
         <select id="segment-filter" class="form-select form-select-sm"><option value="">All segments</option></select>
       </div>
-      <div class="col-md-3">
-        <label class="form-label small mb-1" for="page-size">Rows per page</label>
+      <div style="min-width:130px">
+        <label class="form-label" for="page-size">Rows per page</label>
         <select id="page-size" class="form-select form-select-sm">
           <option value="10">10</option><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option>
         </select>
       </div>
-      <div class="col-md-2 text-md-end">
-        <button id="reset" class="btn btn-sm btn-outline-secondary">Reset</button>
+      <div class="ms-auto align-self-end d-flex gap-2">
+        <button id="reset" class="btn btn-sm btn-outline-secondary" type="button"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+        <a class="btn btn-sm btn-primary" id="cust-export" href="#"><i class="bi bi-download"></i> Export</a>
       </div>
     </div>
-  </div></div>
+  </div>
 
-  <div class="card">
+  <!-- Results count -->
+  <p class="text-secondary small mb-2" id="cust-count"></p>
+
+  <!-- Table -->
+  <div class="table-wrap">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
+      <table class="table table-hover align-middle mb-0" aria-label="Customer details">
+        <thead>
           <tr>
-            <th class="sortable" data-col="customer_id">Customer ID</th>
-            <th class="sortable" data-col="last_order_date">Last Purchase</th>
-            <th class="sortable text-end" data-col="recency_days">Recency (days)</th>
-            <th class="sortable text-end" data-col="frequency">Orders</th>
-            <th class="sortable text-end" data-col="monetary">Total Spend</th>
-            <th class="text-center">R / F / M</th>
-            <th class="sortable" data-col="segment">Segment</th>
+            <th class="sortable" data-col="customer_id" scope="col">Customer ID</th>
+            <th class="sortable" data-col="last_order_date" scope="col">Last Purchase</th>
+            <th class="sortable text-end" data-col="recency_days" scope="col">Recency (days)</th>
+            <th class="sortable text-end" data-col="frequency" scope="col">Orders</th>
+            <th class="sortable text-end" data-col="monetary" scope="col">Total Spend</th>
+            <th class="text-center" scope="col">R / F / M</th>
+            <th class="sortable" data-col="segment" scope="col">Segment</th>
           </tr>
         </thead>
         <tbody id="cust-rows"></tbody>
       </table>
     </div>
-    <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <small class="text-secondary" id="cust-count"></small>
-      <nav><ul class="pagination pagination-sm mb-0" id="cust-pager"></ul></nav>
+    <div class="table-footer">
+      <small id="cust-footer-info"></small>
+      <nav aria-label="Customer pagination"><ul class="pagination pagination-sm mb-0" id="cust-pager"></ul></nav>
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block head %}
-<style>
-  .sortable { cursor: pointer; user-select: none; }
-  .sortable:hover { color: var(--brand); }
-  .sortable .sort-ind { font-size: 0.7rem; opacity: 0.6; }
-</style>
 {% endblock %}
 
 {% block scripts %}

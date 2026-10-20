@@ -1,96 +1,102 @@
 {% extends "base.html" %}
 {% block title %}Analytics Dashboard{% endblock %}
 {% block content %}
-{% set active_step = 'dashboard' %}
-{% include "_steps.html" %}
 
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
-  <h1 class="page-title h3 mb-0">Analytics Dashboard</h1>
-  <div class="d-flex align-items-center gap-2">
-    <label class="form-label mb-0 text-secondary small" for="analysis-select">Analysis</label>
-    <select id="analysis-select" class="form-select form-select-sm" style="min-width: 260px" aria-label="Select analysis"></select>
-    <button id="refresh" class="btn btn-sm btn-outline-secondary" title="Reload"><i class="bi bi-arrow-clockwise"></i></button>
+<div class="page-header">
+  <div class="page-heading">
+    <h1 class="page-title">Analytics Dashboard</h1>
+    <p class="page-subtitle">Overview, RFM segmentation and revenue metrics derived from persisted PySpark analysis results.</p>
+  </div>
+  <div class="page-actions">
+    <label class="form-label mb-0 small text-secondary" for="analysis-select">Analysis</label>
+    <select id="analysis-select" class="form-select form-select-sm" style="min-width:280px" aria-label="Select analysis"></select>
+    <button id="refresh" class="btn btn-sm btn-outline-secondary" title="Reload" type="button" aria-label="Reload analyses"><i class="bi bi-arrow-clockwise"></i></button>
   </div>
 </div>
-<p class="text-secondary">All values are derived from persisted PySpark analysis results for the selected analysis — never from the raw upload.</p>
 
 <div id="dash-empty" class="empty-state d-none">
   <i class="bi bi-speedometer2"></i>
   <h4>No analyses yet</h4>
-  <p class="mb-3">Run the analysis pipeline on a validated dataset to populate this dashboard.</p>
-  <a class="btn btn-primary" href="{{ url_for('pages.upload') }}">Start with an Upload</a>
+  <p>Run the analysis pipeline on a validated dataset to populate this dashboard.</p>
+  <a class="btn btn-primary" href="{{ url_for('pages.upload') }}"><i class="bi bi-upload"></i> Start with an Upload</a>
 </div>
 
-<div id="dash-error" class="alert alert-danger d-none"></div>
+<div id="dash-error" class="alert alert-danger d-none" role="alert"></div>
 
 <div id="dash-content" class="d-none">
   <div id="stage-note"></div>
 
-  <!-- Analysis information -->
-  <div class="card mb-3">
-    <div class="card-body">
-      <div class="row g-3">
-        <div class="col-6 col-lg-3"><div class="kpi-label">Analysis ID</div><div id="info-id" class="text-truncate" style="max-width:220px"></div></div>
-        <div class="col-6 col-lg-3"><div class="kpi-label">Source Dataset</div><div id="info-source" class="fw-semibold text-truncate" style="max-width:220px"></div></div>
-        <div class="col-6 col-lg-3"><div class="kpi-label">Status</div><div id="info-status"></div></div>
-        <div class="col-6 col-lg-3"><div class="kpi-label">Reference Date</div><div id="info-ref" class="fw-semibold"></div></div>
-      </div>
+  <!-- Analysis context banner -->
+  <div class="analysis-banner">
+    <div class="banner-meta">
+      <div>Dataset <span id="info-source" class="text-truncate" style="max-width:220px">-</span></div>
+      <div>Status <span id="info-status">-</span></div>
+      <div>Reference Date <span id="info-ref">-</span></div>
+      <div>Analysis ID <span id="info-id" class="text-truncate" style="max-width:200px"></span></div>
+    </div>
+    <div class="ms-auto d-flex gap-2">
+      <a id="link-segments" class="btn btn-sm btn-outline-primary" href="#"><i class="bi bi-people"></i> Segments</a>
+      <a id="link-customers" class="btn btn-sm btn-outline-primary" href="#"><i class="bi bi-person-badge"></i> Customers</a>
     </div>
   </div>
 
   <!-- Overview KPIs -->
-  <div class="row g-3 mb-4" id="kpi-row"></div>
+  <div class="kpi-grid mb-4" id="kpi-row"></div>
 
   <!-- Segmentation -->
-  <h2 class="h5 mb-3"><i class="bi bi-people"></i> Customer Segmentation</h2>
-  <div class="row g-3 mb-4">
+  <div class="row g-4 mb-4">
     <div class="col-lg-5">
-      <div class="card h-100"><div class="card-body">
-        <h3 class="card-title h6">Segment Distribution</h3>
-        <div style="height: 300px"><canvas id="seg-chart"></canvas></div>
-        <div id="seg-chart-empty" class="empty-state py-4 d-none"><i class="bi bi-pie-chart"></i><p class="mb-0">Segments not available yet.</p></div>
-      </div></div>
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="section-title"><i class="bi bi-pie-chart"></i> Segment Distribution</h2>
+          <div class="chart-container chart-container--donut">
+            <canvas id="seg-chart" role="img" aria-label="Doughnut chart of customers by segment"></canvas>
+          </div>
+          <div id="seg-chart-empty" class="empty-state py-4 d-none"><i class="bi bi-pie-chart"></i><p class="mb-0">Segments not available yet.</p></div>
+        </div>
+      </div>
     </div>
     <div class="col-lg-7">
-      <div class="card h-100"><div class="card-body">
-        <h3 class="card-title h6">Segments &amp; Share</h3>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-0">
-            <thead class="table-light"><tr><th>Segment</th><th class="text-end">Customers</th><th class="text-end">Share</th><th>Description</th></tr></thead>
-            <tbody id="seg-table"></tbody>
-          </table>
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="section-title"><i class="bi bi-list-ul"></i> Segments &amp; Share</h2>
+          <div class="table-wrap">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead><tr><th scope="col">Segment</th><th class="text-end" scope="col">Customers</th><th class="text-end" scope="col">Share</th><th scope="col">Description</th></tr></thead>
+                <tbody id="seg-table"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div></div>
+      </div>
     </div>
   </div>
 
   <!-- RFM -->
-  <h2 class="h5 mb-3"><i class="bi bi-graph-up"></i> RFM Analytics</h2>
-  <div class="row g-3 mb-3" id="rfm-summary"></div>
-  <div class="row g-3 mb-4">
-    <div class="col-md-4"><div class="card"><div class="card-body"><h3 class="card-title h6">Recency Score</h3><div style="height:220px"><canvas id="rfm-recency"></canvas></div></div></div></div>
-    <div class="col-md-4"><div class="card"><div class="card-body"><h3 class="card-title h6">Frequency Score</h3><div style="height:220px"><canvas id="rfm-frequency"></canvas></div></div></div></div>
-    <div class="col-md-4"><div class="card"><div class="card-body"><h3 class="card-title h6">Monetary Score</h3><div style="height:220px"><canvas id="rfm-monetary"></canvas></div></div></div></div>
+  <h2 class="section-title"><i class="bi bi-graph-up"></i> RFM Analytics</h2>
+  <div class="kpi-grid mb-4" id="rfm-summary"></div>
+  <div class="row g-4 mb-4">
+    <div class="col-md-4"><div class="card"><div class="card-body"><h3 class="section-title" style="font-size:.95rem">Recency Score</h3><div class="chart-container" style="height:220px"><canvas id="rfm-recency" role="img" aria-label="Recency score distribution"></canvas></div></div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body"><h3 class="section-title" style="font-size:.95rem">Frequency Score</h3><div class="chart-container" style="height:220px"><canvas id="rfm-frequency" role="img" aria-label="Frequency score distribution"></canvas></div></div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body"><h3 class="section-title" style="font-size:.95rem">Monetary Score</h3><div class="chart-container" style="height:220px"><canvas id="rfm-monetary" role="img" aria-label="Monetary score distribution"></canvas></div></div></div></div>
   </div>
   <div id="rfm-unavailable" class="alert alert-secondary d-none"><i class="bi bi-info-circle"></i> RFM scores and segments are not available for this analysis yet. Complete the RFM and segmentation steps (from the Data Quality page) to unlock them.</div>
 
-  <div class="d-flex gap-2 flex-wrap">
-    <a id="link-segments" class="btn btn-outline-primary" href="#"><i class="bi bi-people"></i> View Segments</a>
-    <a id="link-customers" class="btn btn-outline-primary" href="#"><i class="bi bi-person-badge"></i> Explore Customers</a>
-  </div>
-
-  <!-- Export (Phase 10): files are generated from this analysis's persisted results. -->
-  <h2 class="h5 mt-4 mb-2"><i class="bi bi-download"></i> Export</h2>
-  <div class="card"><div class="card-body">
-    <p class="text-secondary small mb-3">Download the persisted results for the selected analysis. Values match what is shown above; text cells are neutralized against spreadsheet formula injection.</p>
-    <div id="export-controls" class="d-flex gap-2 flex-wrap">
-      <a class="btn btn-sm btn-primary" data-export="xlsx" data-dataset="full" href="#"><i class="bi bi-file-earmark-excel"></i> Excel Workbook (all)</a>
-      <a class="btn btn-sm btn-outline-secondary" data-export="csv" data-dataset="customers" href="#"><i class="bi bi-filetype-csv"></i> Customers CSV</a>
-      <a class="btn btn-sm btn-outline-secondary" data-export="csv" data-dataset="segments" href="#"><i class="bi bi-filetype-csv"></i> Segments CSV</a>
-      <a class="btn btn-sm btn-outline-secondary" data-export="csv" data-dataset="overview" href="#"><i class="bi bi-filetype-csv"></i> Overview CSV</a>
+  <!-- Export -->
+  <div class="card">
+    <div class="card-body">
+      <h2 class="section-title"><i class="bi bi-download"></i> Export Results</h2>
+      <p class="text-secondary small mb-3">Download the persisted results for the selected analysis. Values match what is shown above; text cells are neutralized against spreadsheet formula injection.</p>
+      <div id="export-controls" class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-sm btn-primary" data-export="xlsx" data-dataset="full" href="#"><i class="bi bi-file-earmark-excel"></i> Excel Workbook (all)</a>
+        <a class="btn btn-sm btn-outline-secondary" data-export="csv" data-dataset="customers" href="#"><i class="bi bi-filetype-csv"></i> Customers CSV</a>
+        <a class="btn btn-sm btn-outline-secondary" data-export="csv" data-dataset="segments" href="#"><i class="bi bi-filetype-csv"></i> Segments CSV</a>
+        <a class="btn btn-sm btn-outline-secondary" data-export="csv" data-dataset="overview" href="#"><i class="bi bi-filetype-csv"></i> Overview CSV</a>
+      </div>
+      <div id="export-disabled" class="alert alert-secondary small d-none mb-0 mt-3"><i class="bi bi-info-circle"></i> Export becomes available once the analysis is completed.</div>
     </div>
-    <div id="export-disabled" class="alert alert-secondary small d-none mb-0 mt-2"><i class="bi bi-info-circle"></i> Export becomes available once the analysis is completed.</div>
-  </div></div>
+  </div>
 </div>
 {% endblock %}
 
