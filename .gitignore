@@ -8,7 +8,9 @@ env/
 
 # Flask / app runtime
 backend/instance/
-database/
+# Root SQLite data dir only (leading slash anchors to repo root so the
+# source package backend/app/database/ stays tracked).
+/database/
 backend/.restart_check/
 backend/.example_run/
 backend/.phase9_verify/
