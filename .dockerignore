@@ -1,0 +1,42 @@
+# Build-context exclusions for the production image.
+# Keeps host runtime data, secrets, caches and dev artifacts out of the image.
+
+# VCS
+.git
+.gitignore
+
+# Python environments / caches
+.venv/
+venv/
+env/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
+.coverage
+htmlcov/
+
+# Host runtime data (real data arrives via mounted volumes in the container)
+database/
+storage/
+backend/.restart_check/
+backend/.example_run/
+backend/.phase9_verify/
+backend/$v/
+
+# Local secrets / environment overrides — never baked into the image
+.env
+**/.env
+*.log
+
+# Untracked project asset (must remain untouched / out of the image)
+assets/
+
+# Docker's own files (do not nest into the image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Docs not needed at runtime
+*.md
+LICENSE

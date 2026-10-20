@@ -1,0 +1,61 @@
+  # Local production-style deployment for the E-Commerce Customer Segmentation
+# Dashboard. Builds the image reproducibly and runs it behind Gunicorn with a
+# persistent SQLite volume and writable storage.
+#
+#   docker compose up --build -d
+#   docker compose logs -f web
+#   curl -i http://127.0.0.1:5000/api/health
+#   docker compose down            # stops; volumes (data) are retained
+#
+# Data persistence: named volumes `app_database` (SQLite) and `app_storage`
+# (uploads / processed / exports / temp) survive `docker compose down` and full
+# container recreation. `docker compose down -v` would DELETE them.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-segmentation-dashboard:latest
+    # Bind to loopback only: this is a single-user MVP, not a public service.
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_PATH=/app/database/ecommerce.db
+      - UPLOAD_DIR=/app/storage/uploads
+      - PROCESSED_DIR=/app/storage/processed
+      - EXPORTS_DIR=/app/storage/exports
+      - TEMP_DIR=/app/storage/temp
+      - SPARK_MASTER=local[*]
+      # Rate limiting is in-memory and PER-PROCESS: with a single Gunicorn
+      # worker its counters apply to this one process and reset on restart.
+      - RATE_LIMIT_ENABLED=1
+      - RATE_LIMIT_WINDOW_SECONDS=60
+      - RATE_LIMIT_EXPENSIVE=10
+      - RATE_LIMIT_STANDARD=30
+      # Pass-through only: set a real secret on the host before `up` and Compose
+      # forwards it; if unset, the app falls back to its non-public default and
+      # no empty value is injected. Never commit a real key here.
+      #   export SECRET_KEY="$(openssl rand -hex 32)"
+      - SECRET_KEY
+    volumes:
+      - app_database:/app/database
+      - app_storage:/app/storage
+    # PySpark embeds a JVM; give the container a documented memory budget.
+    mem_limit: 3g
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:5000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  app_database:
+  app_storage:
