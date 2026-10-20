@@ -15,7 +15,7 @@
 | **Phase 8** | Customer Segmentation (segment labels / clustering) | **Completed** | Tests passing (95/95), deterministic rule-based RFM segments (8 labels) persisted per analysis; optional numpy K-Means (self-evaluating, off by default) |
 | **Phase 9** | Analytics Dashboard & Visualization | **Completed** | Tests passing (111/111), read-only dashboard scoped by `analysis_id` (overview KPIs, segment distribution + %, RFM distributions/summaries, server-side customer explorer) rendered live via Chart.js; UI verified in running app |
 | **Phase 10** | CSV / Excel Export | **Completed** | Tests passing (127/127), completed-analysis-scoped CSV/XLSX export (customers, segments, overview + full workbook) from persisted results; formula-injection neutralized, safe filenames, empty/error handling verified |
-| **Phase 11** | Production Hardening & Deployment | **Not Started** | — |
+| **Phase 11** | Production Hardening & Deployment | **Completed** | Strict CSP + security headers, per-process rate limiting, Waitress/Gunicorn WSGI (live-verified), Docker image + Compose (built & run; full suite green **in-container** and a live HTTP pipeline on PySpark/JDK21). Cumulative **233 passed, 1 pre-existing warning** |
 
 > Status legend: **Completed** = built and verified by automated tests · **Not Started** = roadmap phase.
 > Test totals are cumulative across the whole `backend/tests` suite (`python -m pytest`).
@@ -290,9 +290,33 @@ remain out of scope; no segmentation/RFM/dashboard logic was changed.
 
 ---
 
-## Phase 11 Checklist (Not Started) — Hardening & Deployment
+## Phase 11 Checklist (Completed) — Hardening & Deployment
 
-- [ ] Security headers / rate limiting, containerization, and production docs.
+- [x] **Security headers + strict CSP** (`security_service.py`): `script-src` with no
+  `unsafe-inline`/`unsafe-eval`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,
+  COOP, Permissions-Policy; fail-fast config validation; downloads exempt. Tests: 5a0a60b.
+- [x] **Inline-script externalization** for strict CSP (`home.js`, `history.js`, templates).
+  Test: `test_csp_compat.py`. Commit: a7f26e9.
+- [x] **Rate limiting** (`rate_limit_service.py`): in-memory per-process tiered sliding-window
+  on mutating `/api/` endpoints; JSON `429` + `Retry-After`/`X-RateLimit-*`; bounded memory +
+  endpoint-based classification (security-review hardening). `test_rate_limit.py` (56 tests).
+  Commit: 3cbcd43.
+- [x] **Production WSGI servers** — `serve.py` (Waitress, `ident=""` suppresses the `Server`
+  header — verified live on Windows) and `wsgi.py` (Gunicorn, 1 worker / 4 threads / 120s for
+  the embedded PySpark JVM). Commit: 70d24e3.
+- [x] **Docker containerization** — `Dockerfile` (python:3.13-slim + OpenJDK 21, non-root, tini,
+  Gunicorn, HEALTHCHECK), `docker-compose.yml` (named volumes for SQLite + storage, loopback
+  port, 3g budget, cap_drop ALL), `.dockerignore`. Built and run: image ~1.68 GB; **full 233-test
+  suite passed inside the container**; live HTTP pipeline (upload→…→export) succeeded through the
+  served Gunicorn worker; persistence survived recreation. Commit: 89bbd91.
+- [x] **Documentation** — `DEPLOYMENT.md` (authoritative ops guide), updated `README.md`,
+  `TASKS.md`, `PROJECT_CONTEXT.md`, `ARCHITECTURE.md`, and `.env.example` (Phase 11 settings).
+- [x] **End-to-end regression + security audit** — full suite green on Windows and in-container;
+  security behavior re-verified. See completion report.
+
+**Known limitations (documented):** single-user MVP (no authn/authz/multi-tenancy); in-memory
+rate limiter is process-local; HTTPS/TLS is a reverse-proxy responsibility; Gunicorn cannot
+suppress its `Server` header via a supported flag (strip at a trusted proxy).
 
 ---
 
@@ -300,7 +324,11 @@ remain out of scope; no segmentation/RFM/dashboard logic was changed.
 
 - Install: `pip install -r backend/requirements.txt` (openpyxl is already pinned there)
 - Run: `cd backend && python run.py` → http://127.0.0.1:5000
-- Test (full suite): `cd backend && python -m pytest` → **127 passed**
+- Test (full suite): `cd backend && python -m pytest` → **233 passed, 1 warning**
+- Native Windows production server (Waitress): `cd backend && python serve.py`
+- Linux/Docker server (Gunicorn): `cd backend && gunicorn wsgi:app --workers 1 --threads 4 --timeout 120`
+- Container deployment: `docker compose up --build -d` (health: `curl http://127.0.0.1:5000/api/health`)
+- Full guide: see [DEPLOYMENT.md](DEPLOYMENT.md)
 - Persistence restart check: `cd backend && python restart_check.py write` then `python restart_check.py read`
 - Aggregate a validated dataset: `POST /api/uploads/<id>/aggregate`
 - Score RFM for a completed analysis: `POST /api/analyses/<id>/rfm` → read via `GET /api/analyses/<id>/metrics`

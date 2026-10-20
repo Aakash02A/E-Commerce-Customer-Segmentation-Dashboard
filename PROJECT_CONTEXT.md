@@ -734,6 +734,13 @@ Key settings and defaults:
 - Segmentation: `SEGMENTATION_ENABLE_KMEANS` (off), `KMEANS_RANDOM_SEED` (42),
   `KMEANS_MAX_K` (5), `KMEANS_MIN_CUSTOMERS` (10).
 - Misc: `SECRET_KEY` (dev-local-single-user), `FLASK_ENV` (development).
+- Security/CSP (Phase 11): `SECURITY_HEADERS_ENABLED` (1), `CDN_ORIGIN`
+  (`https://cdn.jsdelivr.net`), `CSP_FRAME_ANCESTORS` (`'none'`), `X_FRAME_OPTIONS` (DENY),
+  `REFERRER_POLICY` (no-referrer). Invalid CSP/header values fail fast at startup.
+- Rate limiting (Phase 11): `RATE_LIMIT_ENABLED` (1), `RATE_LIMIT_WINDOW_SECONDS` (60),
+  `RATE_LIMIT_EXPENSIVE` (10), `RATE_LIMIT_STANDARD` (30) — in-memory, per-process, per-IP.
+- Servers (Phase 11): `WAITRESS_THREADS` (4) for `serve.py`; Gunicorn is launched via
+  `wsgi:app` (see §13). The rate limiter does **not** trust `X-Forwarded-For` by default.
 
 Validate configuration at startup and provide actionable errors for missing required
 settings. Never put secrets in frontend assets.
@@ -742,20 +749,42 @@ settings. Never put secrets in frontend assets.
 
 ## 13. Deployment
 
-The current, honest deployment target is a **local single-user MVP** on Windows 11:
+The application is a **local single-user MVP** (no authentication). See
+[DEPLOYMENT.md](DEPLOYMENT.md) for the full operations guide. Do not expose it publicly
+without authn/authz and per-user isolation (§11 multi-user caution).
+
+Development (Flask dev server):
 
 ```bash
 pip install -r backend/requirements.txt
-cd backend
-python run.py            # http://127.0.0.1:5000
+cd backend && python run.py            # http://127.0.0.1:5000 (dev only)
 ```
 
-A production deployment (WSGI server, HTTPS, secrets in host environment, resource limits,
-and containerization that supports the Python + Java + Spark runtime) is planned for
-Phase 11 and is not yet implemented. Do not assume a hosting platform supports PySpark/Java
-just because it supports Python. Do not declare the project deployed or production-ready
-until the end-to-end workflow, data isolation, error handling, security checks, persistence,
-exports, and tests are verified.
+Production — a real WSGI server, never the dev server:
+
+```powershell
+# Windows: Waitress (ident="" suppresses the Server header)
+cd backend && python serve.py
+```
+
+```bash
+# Linux/Docker: Gunicorn (1 worker because of the single embedded PySpark JVM)
+cd backend && gunicorn wsgi:app --bind 0.0.0.0:5000 --workers 1 --threads 4 --timeout 120
+```
+
+Containerized:
+
+```bash
+docker compose up --build -d           # web on 127.0.0.1:5000, SQLite+storage in named volumes
+```
+
+The Docker image (python:3.13-slim + OpenJDK 21 + PySpark + Gunicorn, non-root `appuser`,
+tini, HEALTHCHECK) was built and run in Phase 11; the **full 233-test suite passes inside
+the container** and a live HTTP pipeline (upload→…→export) runs Spark inside the served
+worker, with SQLite surviving recreation. Do not assume a host supports PySpark/Java just
+because it supports Python; do not raise the Gunicorn worker count without re-verifying JVM
+memory/lifecycle. HTTPS/TLS and (if banner-hiding is required) `Server`-header stripping at
+a trusted reverse proxy are deployment responsibilities.
 
 ---
 
@@ -842,8 +871,14 @@ Implemented in this order. Status reflects the verified current state.
   `GET /api/analyses/<id>/export`. Spreadsheet formula injection is neutralized, filenames are
   whitelisted, empty cohorts yield headers-only files, and 404/409/400 errors are clean.
   (127 cumulative.)
-- **Phase 11 — Security, hardening & deployment.** *Not started.* Integration/regression
-  testing, security headers, abuse controls, production WSGI/containerization, docs.
+- **Phase 11 — Security, hardening & deployment.** *Completed.* Strict CSP + security
+  headers (`security_service.py`), inline-script externalization, per-process tiered rate
+  limiting on mutating endpoints (`rate_limit_service.py`), production WSGI servers — Waitress
+  (`serve.py`, `Server` header suppressed & live-verified) and Gunicorn (`wsgi.py`, 1 worker /
+  4 threads / 120s for the PySpark JVM) — and a tested Docker image + Compose (built & run;
+  full suite green in-container). Deployment/ops documented in `DEPLOYMENT.md`. Single-user MVP
+  caveats (no authn/multi-tenancy; process-local limiter; TLS at a proxy) are documented,
+  not hidden. (**233 cumulative.**)
 
 Do not mark a phase complete merely because files exist — verify its functionality actually
 runs and report real command output.
@@ -942,7 +977,7 @@ because code was generated. The project satisfies this when:
 - (Phase 10+) Customer lists and segment/overview reports export correctly to CSV/Excel, scoped to
   a completed analysis, with formula-injection-safe cells and correct empty-result handling.
 - Tests cover critical mapping, validation, analytics, persistence, dashboard, export, and edge
-  cases; the full suite is executed and reported honestly (currently **127 passing, 1 pre-existing warning**).
+  cases; the full suite is executed and reported honestly (currently **233 passing, 1 pre-existing warning**).
 - Documentation matches the actual implementation, and known limitations are documented
   honestly.
 
@@ -950,16 +985,15 @@ because code was generated. The project satisfies this when:
 
 ## 19. Current Priorities
 
-Phases 0–10 are complete and verified (**127 passing, 1 pre-existing warning**). The immediate
-next work, pending explicit approval, is:
-
-1. **Phase 11 — Security, hardening & deployment docs.**
+Phases 0–11 are complete and verified (**233 passing, 1 pre-existing warning**), including
+production hardening (CSP/security headers, rate limiting, Waitress/Gunicorn WSGI, and a
+tested Docker deployment documented in `DEPLOYMENT.md`). Remaining work is future feature
+classified — not part of the current scope — and requires explicit approval before starting.
 
 Deferred dashboard follow-ons (still open, not part of the Phase 9 MVP): date-range/country
 filters, revenue-by-segment and purchase-trend charts, repeat-customer rate, and rule-based
-recommendations (see Section 21).
-
-Do not begin Phase 11 (or any tangential work) without approval.
+recommendations (see Section 21). Any public/multi-user deployment additionally requires
+authentication, per-user isolation, and shared/distributed rate limiting first.
 
 ---
 

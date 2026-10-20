@@ -7,13 +7,14 @@ metrics, and assign interpretable **customer segments** — all backed by **SQLi
 persistence. The interface is a real multi-page **Flask + Bootstrap 5 + Chart.js**
 application, not a static demo with hardcoded numbers.
 
-> **Project status:** Phases 0–8 (upload → mapping → validation → PySpark aggregation → RFM
-> → segmentation) are implemented and verified by an automated suite (**95/95 tests
-> passing**). The analytics dashboard, exports, and production hardening (Phases 9–11) are
-> not yet built — those pages currently render honest empty states rather than placeholder
-> metrics. See [TASKS.md](TASKS.md) for the phase tracker and
-> [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) / [ARCHITECTURE.md](ARCHITECTURE.md) for the full
-> specification and design.
+> **Project status:** Phases 0–11 are implemented and verified by an automated suite
+> (**233 passed, 1 pre-existing warning**). The full pipeline — upload → mapping →
+> validation → PySpark aggregation → RFM → segmentation → **dashboard** → **CSV/Excel
+> export** — runs on real data, and Phase 11 adds security headers/CSP, rate limiting,
+> production WSGI servers (Waitress/Gunicorn) and a tested **Docker** deployment. For
+> deployment and operations see [DEPLOYMENT.md](DEPLOYMENT.md); for the phase tracker see
+> [TASKS.md](TASKS.md) and for the specification/design see
+> [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) / [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -37,6 +38,12 @@ application, not a static demo with hardcoded numbers.
   never overrides rule labels).
 - **SQLite persistence** — analyses and per-customer metrics scoped by `analysis_id`, surviving
   restarts, with no cross-analysis contamination.
+- **Analytics dashboard** — read-only KPIs, segment distribution, RFM charts and a server-side
+  customer explorer (search/filter/sort/paginate), scoped per analysis and rendered live via Chart.js.
+- **CSV/Excel export** — analysis-scoped `customers` / `segments` / `overview` datasets and a
+  full multi-sheet workbook, built from the same persisted results, formula-injection-safe.
+- **Production hardening (Phase 11)** — strict CSP + security headers, per-process rate
+  limiting on mutating endpoints, Waitress/Gunicorn WSGI servers, and a tested Docker image.
 
 ---
 
@@ -49,6 +56,9 @@ application, not a static demo with hardcoded numbers.
 | Analytics | Pandas, NumPy |
 | Big-data | Apache PySpark 4.2.0 (on Java 21), optional K-Means via NumPy |
 | Database | SQLite (Python `sqlite3`, no ORM) |
+| Servers | Waitress (Windows) / Gunicorn (Linux/Docker) — not the Flask dev server |
+| Deployment | Docker + Docker Compose (Python 3.13 + OpenJDK 21 image) |
+| Security | Strict CSP + hardening headers, rate limiting, formula-injection-safe exports |
 | Testing | pytest, Flask test client |
 
 The application is server-rendered by a single Flask process — there is no separate frontend
@@ -86,6 +96,10 @@ python run.py
 Open **http://127.0.0.1:5000** in your browser. The SQLite database and `storage/` directories
 are created automatically on first run.
 
+> `run.py` starts Flask's **development** server (debug/reloader) — fine locally. For
+> production use **Waitress** (`python backend/serve.py`) on Windows, **Gunicorn**
+> (`wsgi:app`) on Linux, or **Docker Compose**. See [DEPLOYMENT.md](DEPLOYMENT.md).
+
 Optional environment overrides (see `backend/.env.example`):
 
 | Variable | Default | Purpose |
@@ -111,8 +125,9 @@ Optional environment overrides (see `backend/.env.example`):
 4. **Aggregate** — run the PySpark pipeline to compute per-customer aggregates.
 5. **RFM** — compute deterministic Recency/Frequency/Monetary scores.
 6. **Segment** — assign rule-based segments (and optional K-Means clusters).
-7. **Dashboard / Segments / Customers** — *(Phase 9)* interactive KPIs and charts; currently
-   empty states.
+7. **Dashboard / Segments / Customers** — interactive KPIs, charts, and a server-side customer
+   explorer, all scoped to the selected analysis.
+8. **Export** — download the analysis as CSV, or a full multi-sheet XLSX workbook.
 
 A sample run on `sample_retail.csv` yields **11 customers**, 15 distinct orders, and 6 distinct
 segments, with the K-Means evaluator self-selecting `k=4` when enabled.
@@ -142,6 +157,13 @@ All API responses are JSON (`{"success": ..., "message": ..., "details": ...}` o
 | POST | `/api/analyses/<id>/rfm` | Compute + persist RFM scores |
 | POST | `/api/analyses/<id>/segment` | Assign segments (+ optional clusters) |
 | GET | `/api/analyses/<id>/metrics` | Per-customer metrics |
+| GET | `/api/analyses` | List analyses (newest first, with source + status) |
+| GET | `/api/analyses/<id>/dashboard` | Read-only dashboard payload (KPIs, distributions) |
+| GET | `/api/analyses/<id>/customers` | Server-side search/filter/sort/paginate |
+| GET | `/api/analyses/<id>/export` | CSV/XLSX export (`?format=csv|xlsx&dataset=...`) |
+
+**Mutating endpoints are rate-limited** (POST `/api/uploads`, `/mapping`, `/validate`,
+`/aggregate`, `/rfm`, `/segment`) — see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 Page routes: `/` (home), `/upload`, `/mapping`, `/validation`, `/dashboard`, `/segments`,
 `/customers`, `/history`, `/settings`.
@@ -177,9 +199,10 @@ From the `backend/` directory:
 python -m pytest
 ```
 
-Current result: **95 passed**. Each test runs against an isolated SQLite DB and storage
-directory. The suite covers file handling, column mapping, validation, database persistence and
-restart survival, PySpark aggregation, RFM scoring, and segmentation (rules + K-Means).
+Current result: **233 passed, 1 pre-existing warning**. Each test runs against an isolated
+SQLite DB and storage directory. The suite covers file handling, column mapping, validation,
+database persistence and restart survival, PySpark aggregation, RFM scoring, segmentation
+(rules + K-Means), the dashboard, exports, and the Phase 11 security/CSP/rate-limit behavior.
 
 Persistence restart check:
 
@@ -200,7 +223,12 @@ python restart_check.py read
 - Internal errors are returned as clean messages/HTML pages — no stack traces, filesystem paths,
   or credentials are exposed to clients.
 - PySpark runs locally; this project does **not** claim distributed, cluster-scale performance.
-- The dashboard, exports, and production hardening are **not yet implemented** (Phases 9–11).
+- **Phase 11 hardening is in place:** strict CSP + security headers, per-process rate limiting,
+  production WSGI servers, and a tested Docker image. The in-memory rate limiter is
+  **process-local** (resets on restart, not shared between workers); the `Server` header is
+  suppressed on Waitress but **not** on Gunicorn (strip it at a trusted reverse proxy).
+- It is still a single-user MVP: **authn/authz and multi-tenant isolation remain prerequisites**
+  before any public deployment. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 

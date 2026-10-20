@@ -14,7 +14,13 @@ stage only ever consumes a *validated, eligible* dataset.
 [ Flask-Served Frontend: Jinja templates + Static (Bootstrap 5, Chart.js, vanilla JS) ]
         │
         ▼ (fetch /api/*)
-[ Flask Backend (run.py, Port 5000) — Blueprints + centralized error handling ]
+[ Production WSGI server — Waitress (serve.py, Windows) / Gunicorn (wsgi.py, Linux/Docker);
+  run.py is the dev server only. Port 5000 ]
+        │
+        ▼
+[ Flask App — Blueprints + centralized error handling
+  + security_service (strict CSP + hardening headers)
+  + rate_limit_service (per-process, mutating /api/* endpoints) ]
         │
   ┌─────┴──────────────────────────────┐
   │                                    │
@@ -79,7 +85,7 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │       ├── settings.html              # About / pipeline / tech stack
 │       └── errors/                    # 400 / 404 / 500 pages
 │
-├── backend/                           # Flask application (run.py, Port 5000)
+├── backend/                           # Flask application (dev run.py; prod serve.py/wsgi.py, Port 5000)
 │   ├── app/
 │   │   ├── __init__.py                # App factory, blueprint + error registration
 │   │   ├── config.py                  # Env-based config, paths, Spark settings
@@ -101,6 +107,8 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │   │   │   ├── segmentation_service.py# Phase 8 rule-based segments + optional K-Means
 │   │   │   ├── dashboard_service.py   # Phase 9 read-only dashboard assembly (scoped by analysis_id)
 │   │   │   ├── export_service.py      # Phase 10 CSV/XLSX export of persisted results (formula-injection safe)
+│   │   │   ├── security_service.py    # Phase 11 strict CSP + hardening headers (fail-fast validated)
+│   │   │   ├── rate_limit_service.py  # Phase 11 in-memory per-process sliding-window limiter
 │   │   │   └── analysis_service.py    # integrity -> Spark/RFM/segment -> persist
 │   │   ├── routes/                    # Flask blueprints (thin HTTP layer)
 │   │   │   ├── pages.py               # HTML page routes
@@ -122,11 +130,17 @@ E-Commerce-Customer-Segmentation-Dashboard/
 │   │   ├── test_rfm_service.py        # Phase 7 RFM scoring, ties, persistence
 │   │   ├── test_segmentation_service.py # Phase 8 segments, K-Means, isolation
 │   │   ├── test_dashboard.py          # Phase 9 metrics, segments, RFM dists, isolation, errors
-│   │   └── test_export.py             # Phase 10 CSV/XLSX contents, injection safety, isolation, errors
+│   │   ├── test_export.py             # Phase 10 CSV/XLSX contents, injection safety, isolation, errors
+│   │   ├── test_security_headers.py   # Phase 11 CSP + hardening headers on responses
+│   │   ├── test_security_config.py    # Phase 11 fail-fast CSP/header config validation
+│   │   ├── test_csp_compat.py         # Phase 11 no inline scripts under strict CSP
+│   │   └── test_rate_limit.py         # Phase 11 sliding-window limiter (tiers, 429, headers)
 │   ├── .env.example                   # Environment configuration template
 │   ├── pytest.ini                     # pythonpath=., testpaths=tests
 │   ├── requirements.txt               # Flask, pandas, PySpark, openpyxl, ...
 │   ├── run.py                         # Entry point (Flask dev server)
+│   ├── serve.py                       # Phase 11 production launcher (Waitress; Server header suppressed)
+│   ├── wsgi.py                        # Phase 11 production WSGI callable (Gunicorn / Docker)
 │   └── restart_check.py               # Two-process persistence smoke test
 │
 ├── sample_data/                       # Demo datasets (incl. validation edge cases)
@@ -137,6 +151,10 @@ E-Commerce-Customer-Segmentation-Dashboard/
 ├── database/                          # Runtime SQLite DB (gitignored)
 ├── storage/                           # Runtime uploads/processed/exports/temp (gitignored)
 │
+├── Dockerfile                          # Phase 11 image (python:3.13-slim + OpenJDK 21 + Gunicorn, non-root)
+├── docker-compose.yml                  # Phase 11 Compose service (named volumes, healthcheck, loopback port)
+├── .dockerignore                       # Phase 11 build-context exclusions (.git, venv, caches, .env, runtime data)
+├── DEPLOYMENT.md                       # Phase 11 deployment & operations guide
 ├── .gitignore                         # Exclusion rules (runtime dirs, caches, .env)
 ├── ARCHITECTURE.md                    # This architecture specification
 ├── LICENSE                            # Project license
@@ -151,11 +169,28 @@ E-Commerce-Customer-Segmentation-Dashboard/
   Bootstrap 5 shell and sidebar; drives the upload → mapping → validation → analysis
   workflow via `fetch` calls to `/api/*`, and renders charts with Chart.js. The Phase 9
   dashboard, segments and customers pages render persisted analysis results (with
-  meaningful empty/unavailable states); pages for later phases stay as honest empty states.
+  meaningful empty/unavailable states).
 - **Backend API (`backend/app/routes/` + `__init__.py`):** Flask blueprints form a thin
   HTTP layer — request parsing, multipart upload security (UUID filenames, path-traversal
   neutralization, magic-number checks), centralized JSON/HTML error handling, and `/api/health`.
   Routes never contain business or Spark logic.
+- **Security Headers / CSP (`security_service.py`, Phase 11):** An app-level `after_request`
+  hook emits a strict Content-Security-Policy (`script-src 'self' <CDN_ORIGIN>`, no
+  `unsafe-inline`/`unsafe-eval`, so all inline scripts were externalized) plus
+  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`
+  and `Permissions-Policy` on HTML/JSON documents; file downloads are exempt. CSP/header
+  settings are validated **fail-fast at startup** (invalid values raise rather than silently
+  weaken the policy). It also attempts to remove any `Server` header, though the real banner
+  is controlled by the WSGI server (see below).
+- **Rate Limiting (`rate_limit_service.py`, Phase 11):** A dependency applied only to mutating
+  `/api/*` endpoints — an in-memory, **per-process** sliding-window limiter keyed by client IP,
+  tiered (expensive vs standard), returning a JSON `429` with `Retry-After` and `X-RateLimit-*`
+  headers. Memory is bounded and classification is endpoint-based (not payload-based). It is
+  intentionally **not** distributed or persistent, and does **not** trust `X-Forwarded-For`.
+- **Production Servers (`serve.py` / `wsgi.py`, Phase 11):** `run.py` remains the dev server.
+  `serve.py` launches **Waitress** on Windows with `ident=""` (no `Server` header — live-verified);
+  `wsgi.py` exposes the `create_app()` WSGI callable for **Gunicorn** on Linux/Docker, run with
+  **1 worker** (a single embedded PySpark JVM), 4 threads, and a long (120s) timeout.
 - **Core Configuration (`backend/app/config.py`):** Environment-overridable settings for
   paths, upload limits, data-quality thresholds, and Spark (`SPARK_MASTER`, app name);
   dev/testing/production config classes.
@@ -208,8 +243,11 @@ E-Commerce-Customer-Segmentation-Dashboard/
   covering file handling, mapping, quality rules, full-pipeline E2E, persistence/
   transaction/FK/restart integrity, PySpark math/isolation/error handling, Phase 9
   dashboard metric/segment/RFM-distribution correctness, analysis isolation, incomplete
-  stages, empty/small cohorts, API error handling, and Phase 10 export file contents,
-  formula-injection neutralization, safe download filenames, isolation and error paths.
+  stages, empty/small cohorts, API error handling, Phase 10 export file contents,
+  formula-injection neutralization, safe download filenames, isolation and error paths, and
+  Phase 11 security headers/CSP, CSP-config fail-fast validation, inline-script-free templates,
+  and rate-limiter behavior (tiers, 429, headers). The suite also passes **inside the built
+  Docker image**, and a live HTTP end-to-end pipeline was run against the served Gunicorn worker.
 
   ## 4. API Surface
 
