@@ -65,6 +65,17 @@ class Config:
     X_FRAME_OPTIONS = os.getenv("X_FRAME_OPTIONS", "DENY")
     REFERRER_POLICY = os.getenv("REFERRER_POLICY", "no-referrer")
 
+    # --- Rate limiting (Phase 11, Task 3) -------------------------------
+    # In-memory, per-process, per-client-IP sliding-window limiter applied only
+    # to mutating /api/ endpoints. Counters RESET on restart and are NOT shared
+    # between worker processes/instances -- see app/services/rate_limit_service.py.
+    RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "1") == "1"
+    RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", 60))
+    # Expensive operations (file upload + Spark aggregate/RFM/segment): tight.
+    RATE_LIMIT_EXPENSIVE = int(os.getenv("RATE_LIMIT_EXPENSIVE", 10))
+    # Other mutating writes (mapping confirm, validation): more generous.
+    RATE_LIMIT_STANDARD = int(os.getenv("RATE_LIMIT_STANDARD", 30))
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
